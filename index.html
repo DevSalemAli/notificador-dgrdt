@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Notificador DGRDT</title>
+<style>
+  :root{
+    --azul:#0a3d62; --azul2:#1565c0; --celeste:#e8f1fb; --gris:#f4f6f9;
+    --borde:#d7dee8; --texto:#1f2d3d; --suave:#6b7a90; --ok:#1e8e3e; --err:#c0392b;
+    --sombra:0 1px 3px rgba(10,61,98,.08),0 1px 2px rgba(10,61,98,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;
+    background:var(--gris);color:var(--texto);font-size:15px;line-height:1.55}
+  header.top{background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff;padding:16px 22px;box-shadow:var(--sombra)}
+  header.top h1{font-size:20px;margin:0;font-weight:600}
+  header.top .sub{font-size:12.5px;opacity:.88;margin-top:2px}
+  main{max-width:780px;margin:0 auto;padding:22px 16px 70px}
+  .card{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:var(--sombra)}
+
+  #drop{border:2px dashed var(--azul2);border-radius:12px;padding:34px 20px;text-align:center;
+    background:var(--celeste);cursor:pointer;transition:.15s;color:var(--azul)}
+  #drop.drag{background:#d3e6fb;border-color:var(--azul)}
+  #drop strong{font-size:17px;display:block}
+  #drop span{display:block;color:var(--suave);font-size:13px;margin-top:6px}
+
+  #fileList{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .fileItem{display:flex;align-items:center;gap:10px;background:#f7f9fc;border:1px solid var(--borde);border-radius:8px;padding:9px 12px}
+  .fileItem .ic{font-size:18px}
+  .fileItem .fname{flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fileItem .frm{background:none;border:none;color:var(--err);cursor:pointer;font-size:17px;line-height:1;padding:0 4px}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+  button.btn{background:var(--azul2);color:#fff;border:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s}
+  button.btn:hover{background:#0d4ea0}
+  button.btn:disabled{background:#9db8d6;cursor:not-allowed}
+  button.btn.sec{background:#fff;color:var(--azul2);border:1px solid var(--azul2)}
+  button.btn.sec:hover{background:var(--celeste)}
+  button.btn.gris{background:#eef2f7;color:var(--texto);border:1px solid var(--borde)}
+  button.btn.sm{padding:7px 13px;font-size:13px}
+
+  .big{width:100%;justify-content:center;font-size:16px;padding:14px}
+
+  label.lab{display:block;font-size:12px;font-weight:700;color:var(--suave);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.5px}
+  input[type=text],input[type=password],textarea,select{width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:8px;font-size:14px;font-family:inherit;color:var(--texto);background:#fff}
+  textarea{resize:vertical;line-height:1.6}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--azul2);box-shadow:0 0 0 3px rgba(21,101,192,.12)}
+
+  .out-box{position:relative;background:#fbfcfe;border:1px solid var(--borde);border-radius:8px;margin-bottom:6px}
+  .out-box .copybar{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-bottom:1px solid var(--borde);background:#f0f4f9;border-radius:8px 8px 0 0}
+  .out-box .copybar .t{font-size:12px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.5px}
+  .out-box textarea{border:none;background:transparent;border-radius:0 0 8px 8px}
+
+  .pill{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12.5px;font-weight:600;background:#e8f5e9;color:#2e7d32}
+  .muted{color:var(--suave);font-size:13px}
+  .notas{background:#fff7e6;border:1px solid #ffe0a3;color:#8a5a00;padding:10px 13px;border-radius:8px;font-size:13.5px;margin-top:6px}
+  .err{background:#fdecea;border:1px solid #f5c6c0;color:#a5281b;padding:11px 14px;border-radius:8px;font-size:14px;margin-top:8px}
+
+  #chatBox{margin-top:18px;border-top:1px solid var(--borde);padding-top:14px}
+  #chatLog{display:flex;flex-direction:column;gap:6px;margin:8px 0 10px;max-height:220px;overflow:auto}
+  #chatLog .cl{font-size:13.5px;padding:7px 11px;border-radius:9px;max-width:92%;white-space:pre-wrap}
+  #chatLog .cl.user{background:var(--celeste);align-self:flex-end;color:var(--azul)}
+  #chatLog .cl.ok{background:#e8f5e9;color:#2e7d32;align-self:flex-start;font-size:12.5px}
+  #chatLog .cl.err{background:#fdecea;color:#a5281b;align-self:flex-start;font-size:12.5px}
+  .chatInput{display:flex;gap:8px}
+  .chatInput input{flex:1}
+
+  .notif{border:1px solid var(--borde);border-radius:10px;padding:14px;margin-bottom:14px;background:#fcfdff}
+  .notif+.notif{border-top:3px solid var(--azul2)}
+  .notifHead{display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
+  .viaBadge{font-size:12.5px;font-weight:700;padding:4px 11px;border-radius:20px}
+  .viaBadge.mail{background:#e3f2fd;color:#1565c0}
+  .viaBadge.tad{background:#fde7d6;color:#b3541e}
+  .paraTxt{font-size:13px;color:var(--suave)}
+
+  details.cfg{margin-top:4px}
+  details.cfg summary{cursor:pointer;font-weight:600;color:var(--azul2);font-size:14px}
+  a{color:var(--azul2)}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:13px}
+
+  .loader{display:none;align-items:center;gap:12px;margin-top:16px;color:var(--azul)}
+  .loader.on{display:flex}
+  .spin{width:22px;height:22px;border:3px solid #cdddf0;border-top-color:var(--azul2);border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--azul);color:#fff;
+    padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--err)}.toast.ok{background:var(--ok)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>📨 Notificador DGRDT</h1>
+  <div class="sub">Subí la Providencia (PV) y la presentación (RE) — la IA arma la notificación lista para Outlook.</div>
+</header>
+
+<main>
+
+  <!-- PASO ÚNICO: SUBIR -->
+  <div class="card" id="cardUp">
+    <div id="drop">
+      <strong>📎 Arrastrá la PV y el RE acá</strong>
+      <span>o hacé clic para elegir los PDF (podés subir 1 o varios juntos)</span>
+    </div>
+    <input type="file" id="fileInput" accept="application/pdf" multiple style="display:none" />
+    <div id="fileList"></div>
+
+    <div class="row">
+      <button class="btn big" id="btnGen">✨ Generar notificación</button>
+    </div>
+
+    <div class="loader" id="loader"><div class="spin"></div><span id="loaderTxt">Leyendo los documentos con IA…</span></div>
+    <div class="err" id="errBox" style="display:none"></div>
+    <p class="muted" style="margin-top:14px">🔒 Los PDF se leen con la IA gratuita de Google (Gemini). No se guardan en ningún lado.</p>
+  </div>
+
+  <!-- RESULTADO -->
+  <div class="card" id="cardOut" style="display:none">
+    <div class="row" style="margin-top:0;justify-content:space-between">
+      <span class="pill" id="pillEsc">—</span>
+      <span class="muted" id="detRes"></span>
+    </div>
+
+    <div id="notifList"></div>
+    <div id="internoWrap"></div>
+    <p class="muted" id="boldHint" style="display:none">Lo que aparece entre <code>** **</code> se copia en <b>negrita</b> al pegar en Outlook (usá el botón 📋 Copiar).</p>
+
+    <div class="notas" id="notasBox" style="display:none"></div>
+
+    <div id="chatBox">
+      <label class="lab">💬 ¿Algo para corregir? Pedíselo a la IA y lo rehace</label>
+      <div id="chatLog"></div>
+      <div class="chatInput">
+        <input type="text" id="chatMsg" placeholder="Ej: notificá solo a la empresa; la audiencia es virtual; sacá ese párrafo…" />
+        <button class="btn" id="btnChat">Enviar</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <button class="btn" id="btnCopyAll">📋 Copiar todo</button>
+      <button class="btn gris" id="btnNuevo">＋ Nueva notificación</button>
+    </div>
+  </div>
+
+  <!-- CONFIG (clave) -->
+  <div class="card">
+    <details class="cfg" id="cfgDetails">
+      <summary>⚙️ Clave de IA (Google Gemini) — gratis, se configura 1 sola vez</summary>
+      <label class="lab">API key de Gemini</label>
+      <input type="password" id="cfgKey" placeholder="Pegá acá tu clave (AIza...)" autocomplete="off" />
+      <label class="lab">Modelo</label>
+      <select id="cfgModel">
+        <option value="gemini-2.0-flash">gemini-2.0-flash (recomendado)</option>
+        <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+        <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+      </select>
+      <div class="row"><button class="btn sm" id="btnSaveKey">Guardar clave</button></div>
+      <p class="muted" style="margin-top:12px">
+        ¿No tenés clave? Es gratis: entrá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>,
+        iniciá sesión con tu cuenta de Google, tocá <b>“Create API key”</b>, copiala y pegala acá arriba.
+      </p>
+    </details>
+
+  </div>
+
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+
+/* ============================================================================
+   NOTIFICADOR DGRDT — versión simple con IA (Google Gemini, gratis)
+   Subís PV + RE (PDF) -> Gemini los lee y devuelve asunto + emails + cuerpo.
+   ========================================================================== */
+
+/* ---------- Instrucciones para la IA (todo el conocimiento del proyecto) ---------- */
+const SYSTEM_PROMPT = `Sos un asistente experto de la Dirección General de Relaciones del Trabajo (DGRDT) del Gobierno de la Ciudad de Buenos Aires (GCABA). Tu tarea: leer uno o más documentos oficiales en PDF y redactar la NOTIFICACIÓN por email lista para pegar en Outlook.
+
+Recibís uno o varios PDFs. Pueden ser:
+- Providencia (PV): número PV-AAAA-XXXXXXXX-GCABA-DGRDT. Define la audiencia/cambio de fecha.
+- Presentación (RE): número RE-AAAA-XXXXXXXX-GCABA-DGRDT (a veces IF-...). Es el escrito de parte; de acá salen datos de la EMPRESA y EMAILS.
+- Acta de Audiencia (IF): número IF-AAAA-XXXXXXXX-GCABA-DGRDT.
+- Resolución (RESOL): número RESOL-AAAA-XXX-GCABA-SECTE.
+Número de expediente: EX-AAAA-XXXXXXXX-GCABA-DGRDT.
+
+Si te pasan PV + RE juntos: usá la PV para el escenario, fechas, horas y modalidad; usá el RE para la/s empresa/s, emails y el número de presentación. COMBINÁ la información de TODOS los documentos.
+
+IMPORTANTE:
+- NO inventes datos. Si falta un dato (email, número, fecha), dejá una marca «FALTA: descripción» y explicá en "notas".
+- Extraé TODOS los emails que aparezcan, en minúscula y sin repetir.
+- DESTINATARIOS: notificá a la/s parte/s que corresponda. INCOMPARECENCIA: si en un acta una parte compareció y la otra NO, la notificación va SOLO a la parte AUSENTE (encabezado "Señores ...:" con esa parte y destinatarios solo con sus emails). Aclará en "notas" quién no compareció.
+- CANAL Email vs TAD: a cada parte se la notifica por EMAIL si hay un email para ella (en el documento o en CONTACTOS CONOCIDOS). Si NO hay email, se la notifica por TAD (Trámite a Distancia): NO inventes email, poné via="TAD", destinatarios=[] y en "para" la razón social de esa parte. Aclará en "notas" qué parte va por TAD.
+- SEPARACIÓN EN 2 NOTIFICACIONES: si por el canal (una por Email y otra por TAD) o por quién presentó las partes necesitan textos distintos, devolvé UNA notificación POR PARTE en "notificaciones": la parte que HIZO la presentación (RE/IF) usa el formato CON presentación; la parte que NO presentó usa el formato SIN presentación. Ejemplo: la empresa presentó pero NO tiene email y el sindicato sí → (1) al SINDICATO por Email, formato SIN presentación; (2) a la EMPRESA por TAD, formato CON presentación.
+- Si todas las partes tienen email y corresponde una sola notificación combinada, devolvé un único elemento en "notificaciones" (via="Email").
+- Respetá EXACTAMENTE el espaciado de las plantillas: línea en blanco después de "Señores ...:", línea en blanco antes de "Se adjunta...", los varios "Se adjunta" van pegados entre sí (sin línea en blanco), y línea en blanco antes de "Quedan ustedes debidamente notificados.".
+- Encabezado CON presentación: "Señores SINDICATO (SIGLA) y EMPRESA:". SIN presentación con varias partes: "Señores SINDICATO (SIGLA) - EMPRESA1 - EMPRESA2 y EMPRESA3:" (se separan con " - " y la última con " y ").
+
+HAY 9 ESCENARIOS. Elegí EXACTAMENTE uno (campo "escenario" con la clave entre paréntesis) y completá las plantillas con los datos reales:
+
+1) audiencia_presencial — PV que dice "atento a la presentación efectuada por..." y es presencial (Bartolomé Mitre 575).
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA [PV].
+CUERPO:
+Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
+
+Por este medio, atento a la presentación efectuada por el [NOMBRE SINDICATO] ([SIGLA]) - [RE] - se notifica la [PV] mediante la cual se señala fecha de audiencia para el día [día, DD de mes de AAAA], a las [hora] horas en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A.
+
+Se adjunta [RE]
+Se adjunta [PV]
+
+Quedan ustedes debidamente notificados.
+
+2) audiencia_virtual — PV con presentación y GOOGLE MEET.
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA [PV].
+CUERPO:
+Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
+
+Por este medio, y atento a la presentación efectuada por el [NOMBRE SINDICATO] ([SIGLA]), [RE], la cual se adjunta, se notifica la [PV] mediante la cual se fija audiencia virtual para el día [día, DD de mes de AAAA], a las [hora] horas por medio de la plataforma digital GOOGLE MEET.
+
+Asimismo, se notifica detalles de la invitación a la audiencia a celebrarse en la fecha indicada al siguiente link: [LINK MEET]
+
+Se adjunta [PV]
+Se adjunta [RE]
+
+Quedan ustedes debidamente notificados.
+
+3) audiencia_sin_presentacion_presencial — PV que fija audiencia presencial SIN "atento a la presentación".
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA [PV].
+CUERPO:
+Señores [SINDICATO (SIGLA) - EMPRESA1 - EMPRESA2 y EMPRESA3]:
+
+Por este medio, se notifica la [PV] mediante la cual se fija fecha de audiencia para el día [día, DD de mes de AAAA], a las [hora] horas en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A.
+
+Se adjunta [PV]
+
+Quedan ustedes debidamente notificados.
+
+4) audiencia_sin_presentacion_virtual — PV que fija audiencia virtual SIN presentación.
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA [PV].
+CUERPO:
+Señores [SINDICATO (SIGLA) - EMPRESA1 - EMPRESA2 y EMPRESA3]:
+
+Por este medio, se notifica la [PV] mediante la cual se fija fecha de audiencia virtual por medio de la plataforma digital GOOGLE MEET, para el día [día, DD de mes de AAAA], a las [hora] horas, link: [LINK MEET].
+
+Se adjunta [PV]
+
+Quedan ustedes debidamente notificados.
+
+5) cambio_fecha_con_presentacion — PV que dice "se deja sin efecto la audiencia señalada..." y menciona una presentación (RE/IF).
+ASUNTO: CAMBIO DE FECHA DE AUD [EX] [SIGLA] - [EMPRESA]. NOTIFICA [PV]
+CUERPO:
+Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
+
+Por este medio, y atento a la presentación efectuada por la empresa [EMPRESA] - [RE] - se notifica la [PV], mediante la cual se deja sin efecto la audiencia señalada para el día [día anterior], a las [hora anterior] hs, a la vez que se señala nueva fecha de audiencia para el día [día nuevo], a las [hora nueva] horas en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A.
+
+Se adjunta [PV]
+Se adjunta [RE]
+
+Quedan ustedes debidamente notificados.
+
+6) cambio_fecha_sin_presentacion — PV con "se deja sin efecto" pero SIN presentación.
+ASUNTO: CAMBIO DE FECHA DE AUD [EX] [SIGLA] - [EMPRESA]. NOTIFICA [PV]
+CUERPO:
+Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
+
+Por este medio, se notifica la [PV] mediante la cual se deja sin efecto la audiencia señalada para el día [día anterior], a las [hora anterior] hs, a la vez que se señala nueva fecha de audiencia para el día [día nuevo], a las [hora nueva] horas en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A.
+
+Se adjunta [PV]
+
+Quedan ustedes debidamente notificados.
+
+7) reserva — Acta de audiencia donde comparecen ambas partes y se ordena la reserva del expediente.
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA ACTA DE AUD. DEL [DD/M/AAAA del acta]
+CUERPO:
+Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
+
+En virtud de la audiencia llevada a cabo en el día de la fecha, se remite el acta labrada en ese acto a los fines de su firma. Una vez suscripta por los representantes de ambas partes, nos la deben enviar escaneada por este medio en el plazo de 48 horas bajo apercibimiento de tenerlos por no presentados.
+
+Se adjunta ACTA DE AUDIENCIA DEL [DD/M/AAAA] PARA FIRMAR - [IF].
+
+Quedan ustedes debidamente notificados.
+
+8) nueva_audiencia_acta — Acta de audiencia donde una parte NO compareció y se fija nueva fecha. REGLAS:
+- Notificá ÚNICAMENTE a la parte que NO compareció (la ausente); los destinatarios son SOLO los emails de esa parte. Aclará en "notas" quién no compareció.
+- Si notificás a UNA sola parte usá SINGULAR: encabezado "Señor [PARTE]:" y cierre "Queda usted debidamente notificado.". Si fueran varias partes, usá plural ("Señores ...:" y "Quedan ustedes debidamente notificados.").
+- Puede ser PRESENCIAL o VIRTUAL: mirá el acta (si hay GOOGLE MEET o link de Meet, es virtual).
+- Se referencia el acta por la fecha en que se realizó la audiencia (formato DD/M/AA).
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA ACTA DE AUD. DEL [DD/M/AAAA del acta]
+
+CUERPO (si es VIRTUAL):
+Señor [PARTE AUSENTE]:
+
+Por este medio, se notifica el [IF] en referencia al Acta de la audiencia llevada a cabo el día [DD/M/AA del acta]. Asimismo, se fija nueva fecha de audiencia virtual para el día [día, DD de mes de AAAA] a las [hora] horas por medio de la plataforma digital GOOGLE MEET, link: [LINK MEET]
+
+Se adjunta [IF].
+
+Queda usted debidamente notificado.
+
+CUERPO (si es PRESENCIAL):
+Señor [PARTE AUSENTE]:
+
+Por este medio, se notifica el [IF] en referencia al Acta de la audiencia llevada a cabo el día [DD/M/AA del acta]. Asimismo, se fija nueva fecha de audiencia para el día [día, DD de mes de AAAA] a las [hora] horas en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A.
+
+Se adjunta [IF].
+
+Queda usted debidamente notificado.
+
+9) resolucion — Documento RESOL-...-GCABA-SECTE.
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA ACTO ADMINISTRATIVO
+CUERPO:
+Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
+
+Por este medio, se notifica el acto administrativo emanado de las presentes actuaciones [RESOL], la cual se adjunta.
+
+Quedan ustedes debidamente notificados.
+
+=== ESCENARIO ESPECIAL: EMPRESA SIN EMAIL → NOTIFICACIÓN POR TAD ===
+APLICA cuando: (a) es una PV de APERTURA de audiencia (presencial o virtual) con presentación (RE/IF), y (b) NO hay email atribuible a la EMPRESA.
+Para saber el email de la empresa: buscalo en el bloque de datos de la empresa requerida (en presentaciones FAECYS suele estar bajo "-II- DATOS DE LA EMPRESA REQUERIDA", o el renglón "correo electrónico" de la empresa). El email del SINDICATO casi siempre está; el de la EMPRESA es el que puede faltar. NO tomes como email de la empresa un correo que aparezca en el relato/denuncia (puede ser de un tercero); solo el del bloque de datos de la empresa.
+Si la empresa NO tiene email, devolvé DOS notificaciones + el texto_interno:
+
+NOTIFICACIÓN 1 — al SINDICATO, via="Email", destinatarios = SOLO el email del sindicato:
+- asunto: "[EX]. [SIGLA] - [EMPRESA]. NOTIFICA [PV]."
+- Encabezado SINGULAR, solo el sindicato (sin la empresa): "Señor [NOMBRE COMPLETO SINDICATO] ([SIGLA]):"
+- NO lleva "atento a la presentación...". Arranca directo con "Por este medio se notifica la [PV]...".
+- Cierre SINGULAR: "Queda usted debidamente notificado."
+- La fecha y hora completa va en NEGRITA: envolvela entre ** ** (ej: **martes, 23 de junio de 2026, a las 10:30 horas**).
+cuerpo (PRESENCIAL):
+Señor [NOMBRE COMPLETO SINDICATO] ([SIGLA]):
+
+Por este medio se notifica la [PV] mediante la cual se señala fecha de audiencia para el día **[día, DD de mes de AAAA], a las [hora] horas** en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A.
+
+Se adjunta [RE]
+Se adjunta [PV]
+
+Queda usted debidamente notificado.
+
+cuerpo (VIRTUAL):
+Señor [NOMBRE COMPLETO SINDICATO] ([SIGLA]):
+
+Por este medio se notifica la [PV] mediante la cual se fija audiencia virtual para el día **[día, DD de mes de AAAA], a las [hora] horas** por medio de la plataforma digital GOOGLE MEET, link: [LINK MEET]
+
+Se adjunta [RE]
+Se adjunta [PV]
+
+Queda usted debidamente notificado.
+
+NOTIFICACIÓN 2 — a la EMPRESA, via="TAD": destinatarios=[]; para = razón social de la empresa; cuit = CUIT de la empresa (de los datos de la empresa requerida); documentos_a_vincular = "[RE] / [PV]".
+- El cuerpo (Mensaje del TAD) SÍ lleva "atento a la presentación...". Cierre SINGULAR: "Queda usted debidamente notificado." (sin negritas).
+cuerpo (TAD PRESENCIAL):
+Por este medio, atento a la presentación efectuada por [el/la] [NOMBRE COMPLETO SINDICATO] ([SIGLA]) - [RE] - se notifica la [PV] mediante la cual se señala fecha de audiencia para el día [día, DD de mes de AAAA], a las [hora] horas en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A. Queda usted debidamente notificado.
+cuerpo (TAD VIRTUAL):
+Por este medio, atento a la presentación efectuada por [el/la] [NOMBRE COMPLETO SINDICATO] ([SIGLA]) - [RE] - se notifica la [PV] mediante la cual se fija audiencia virtual para el día [día, DD de mes de AAAA], a las [hora] horas por medio de la plataforma digital GOOGLE MEET, link: [LINK MEET] Queda usted debidamente notificado.
+
+TEXTO INTERNO (campo texto_interno) — poné en NEGRITA (entre ** **) la parte "APERTURA ...":
+- PRESENCIAL: **APERTURA [EX] [SIGLA] - [EMPRESA]**. PTCIÓN [SIGLA]. SE FIJÓ FECHA DE AUD. PARA EL [DD/M], [HH] Hs. SE GENERÓ PV. NOTIFICADO SINDICATO POR MAIL Y EMPRESA POR TAD. VINCULADO. AGENDADO.
+- VIRTUAL: **APERTURA [EX] [SIGLA] - [EMPRESA]**. PTCIÓN [SIGLA]. SE FIJÓ AUD. VIRTUAL PARA EL [DD/M], [HH] Hs. SE GENERÓ PV. NOTIFICADO SINDICATO POR MAIL Y EMPRESA POR TAD. VINCULADO. AGENDADO.
+Para una APERTURA NORMAL (la empresa SÍ tiene email; todo por Email, una sola notificación combinada) el texto_interno es igual pero termina en "... NOTIFICADO. VINCULADO. AGENDADO." (sin la parte de TAD).
+texto_interno solo se completa en APERTURAS de audiencia; para otros tipos de documento dejalo vacío.
+=== FIN ESCENARIO ESPECIAL ===
+
+Sindicatos frecuentes (sigla = nombre completo): FAECYS, SMATA, UPSRA, SUPASO, SUTHRA, UOCRA, UOM, UTEDYC, UTHGRA, UPCN, ATE, ALEARA, UTA, SUTERH, SADOP. Usá el nombre completo del sindicato si lo conocés o si aparece en el documento.
+
+CONTACTOS CONOCIDOS (emails que la DGRDT ya tiene; usalos cuando una parte no traiga email en el documento):
+(— por ahora vacío; se completará con la lista del equipo —)
+
+Devolvé SOLO el JSON pedido. Cada elemento de "notificaciones" debe tener: via ("Email" o "TAD"), para (a quién va, ej. "Sindicato (SMATA)" o "Empresa LUIS JD SCORZA Y CIA S.A."), destinatarios (lista de emails; vacía si via="TAD"), asunto y cuerpo COMPLETOS (sin corchetes ni placeholders, salvo «FALTA: ...» si de verdad falta un dato). En las notificaciones por TAD agregá además cuit y documentos_a_vincular. Completá texto_interno solo en aperturas de audiencia. Las negritas se marcan con ** ** (doble asterisco). Normalmente hay 1 notificación; puede haber 2 si se separan canales (Email/TAD).`;
+
+/* ---------- Esquema de salida (JSON estructurado) ---------- */
+const SCHEMA = {
+  type:"OBJECT",
+  properties:{
+    tipo_documento:{type:"STRING"},
+    escenario:{type:"STRING"},
+    expediente:{type:"STRING"},
+    sindicato:{type:"STRING"},
+    empresa:{type:"STRING"},
+    notificaciones:{ type:"ARRAY", items:{ type:"OBJECT", properties:{
+      via:{type:"STRING"},
+      para:{type:"STRING"},
+      destinatarios:{type:"ARRAY", items:{type:"STRING"}},
+      asunto:{type:"STRING"},
+      cuerpo:{type:"STRING"},
+      cuit:{type:"STRING"},
+      documentos_a_vincular:{type:"STRING"}
+    }, required:["via","cuerpo"] } },
+    texto_interno:{type:"STRING"},
+    notas:{type:"STRING"}
+  },
+  required:["escenario","notificaciones"]
+};
+
+const ESC_LABEL = {
+  audiencia_presencial:"Audiencia presencial (con presentación)",
+  audiencia_virtual:"Audiencia virtual (con presentación)",
+  audiencia_sin_presentacion_presencial:"Audiencia presencial (sin presentación)",
+  audiencia_sin_presentacion_virtual:"Audiencia virtual (sin presentación)",
+  cambio_fecha_con_presentacion:"Cambio de fecha (con presentación)",
+  cambio_fecha_sin_presentacion:"Cambio de fecha (sin presentación)",
+  reserva:"Reserva / acta para firma",
+  nueva_audiencia_acta:"Nueva audiencia desde acta",
+  resolucion:"Resolución / acto administrativo"
+};
+
+/* ---------- Utilidades ---------- */
+const $ = id => document.getElementById(id);
+function toast(msg, kind){ const t=$("toast"); t.textContent=msg; t.className="toast show "+(kind||""); clearTimeout(t._t); t._t=setTimeout(()=>t.className="toast",2800); }
+function getKey(){ return localStorage.getItem("dgrdt_gemini_key")||""; }
+function getModel(){ return localStorage.getItem("dgrdt_gemini_model")||"gemini-2.0-flash"; }
+
+async function fileToBase64(file){
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf); let binary="";
+  const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){ binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk)); }
+  return btoa(binary);
+}
+
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+function parseRetryDelay(data){
+  try{ const det=(data&&data.error&&data.error.details)||[];
+    for(const d of det){ if(String(d["@type"]||"").includes("RetryInfo") && d.retryDelay){ const s=parseFloat(d.retryDelay); if(!isNaN(s)) return Math.ceil(s*1000); } }
+  }catch(e){} return 0;
+}
+
+/* ---------- Manejo de archivos ---------- */
+let FILES = [];
+let CONV = [];            // conversación con la IA (para corregir por chat)
+let SCROLL_NEXT = false;  // si el próximo render debe centrar el resultado
+const drop=$("drop"), fileInput=$("fileInput");
+drop.onclick=()=>fileInput.click();
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("drag");};
+drop.ondragleave=()=>drop.classList.remove("drag");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("drag");addFiles(e.dataTransfer.files);};
+fileInput.onchange=e=>{addFiles(e.target.files);fileInput.value="";};
+
+function addFiles(list){
+  [...list].forEach(f=>{ if((f.type==="application/pdf"||/\.pdf$/i.test(f.name)) && !FILES.some(x=>x.name===f.name&&x.size===f.size)) FILES.push(f); });
+  renderFiles();
+}
+function renderFiles(){
+  const box=$("fileList"); box.innerHTML="";
+  FILES.forEach((f,i)=>{
+    const d=document.createElement("div"); d.className="fileItem";
+    d.innerHTML=`<span class="ic">📄</span><span class="fname">${f.name}</span>`;
+    const rm=document.createElement("button"); rm.className="frm"; rm.textContent="✕"; rm.title="Quitar";
+    rm.onclick=()=>{ FILES.splice(i,1); renderFiles(); };
+    d.appendChild(rm); box.appendChild(d);
+  });
+}
+
+/* ---------- Generar (llamar a Gemini) ---------- */
+$("btnGen").onclick = generar;
+const MODEL_FALLBACK = ["gemini-2.0-flash","gemini-2.5-flash","gemini-2.0-flash-lite","gemini-1.5-flash"];
+
+// Arma el contenido para la IA: manda el PDF completo (la IA lo lee tal cual, con los emails intactos).
+async function buildParts(){
+  const parts=[{text:"Te adjunto los documentos oficiales en PDF. Leelos completos."}];
+  for(const f of FILES){
+    parts.push({text:"\n===== ARCHIVO: "+f.name+" ====="});
+    parts.push({inline_data:{mime_type:"application/pdf", data:await fileToBase64(f)}});
+  }
+  parts.push({text:"\nIdentificá el escenario y devolvé la notificación en el JSON pedido. Extraé TODOS los emails que aparezcan en los documentos (en el RE suele estar el correo de la empresa); no los inventes."});
+  return parts;
+}
+
+async function callGemini(model, contents){
+  const body={ system_instruction:{parts:[{text:SYSTEM_PROMPT}]}, contents,
+    generationConfig:{ temperature:0.1, response_mime_type:"application/json", response_schema:SCHEMA } };
+  const url="https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent?key="+encodeURIComponent(getKey());
+  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const data=await r.json().catch(()=>({}));
+  return { ok:r.ok, status:r.status, data };
+}
+
+// Ejecuta un turno con la IA usando TODA la conversación (CONV). Prueba modelos y reintenta ante el límite.
+async function runTurn(onMsg){
+  const chosen=getModel();
+  const models=[chosen, ...MODEL_FALLBACK.filter(m=>m!==chosen)];
+  let lastDetail="";
+  for(let mi=0; mi<models.length; mi++){
+    const model=models[mi];
+    if(mi>0 && onMsg) onMsg("Probando con "+model+"…");
+    for(let attempt=0; attempt<2; attempt++){
+      let res;
+      try{ res=await callGemini(model, CONV); }
+      catch(e){ const m=e.message||""; return {ok:false, error:/Failed to fetch|NetworkError|ERR_/i.test(m)?"Sin conexión a internet, o la red bloquea googleapis.com.":(m||"Error de red")}; }
+
+      if(res.ok){
+        const cand=res.data.candidates&&res.data.candidates[0];
+        const txt=cand&&cand.content&&cand.content.parts&&cand.content.parts[0]&&cand.content.parts[0].text;
+        if(!txt){ lastDetail="La IA no devolvió texto."; break; }
+        let out; try{ out=JSON.parse(txt); }catch(e){ lastDetail="Respuesta no válida de la IA."; break; }
+        CONV.push({ role:"model", parts:[{text:txt}] });
+        render(out);
+        return {ok:true};
+      }
+
+      const msg=(res.data.error&&res.data.error.message)||("HTTP "+res.status);
+      lastDetail=msg;
+      if(/API key|API_KEY_INVALID|invalid.*key|key.*invalid/i.test(msg)) return {ok:false, error:"La clave de Gemini no es válida. Revisala en ⚙️. Tiene que empezar con AIza…"};
+      if(res.status===429 || /RESOURCE_EXHAUSTED|quota/i.test(msg)){
+        const delay=parseRetryDelay(res.data);
+        if(attempt===0 && delay && delay<=9000){ if(onMsg) onMsg("Límite momentáneo, reintentando…"); await sleep(delay+400); continue; }
+        break; // siguiente modelo
+      }
+      if(res.status===404 || /not found|not supported|unsupported|does not exist/i.test(msg)) break; // otro modelo
+      return {ok:false, error:msg};
+    }
+  }
+  return {ok:false, error:"Se alcanzó el límite gratuito de la IA (probé varios modelos). Suele pasar por muchas pruebas seguidas o un PDF muy grande. Esperá 1–2 minutos y reintentá."+(lastDetail?(" · Detalle: "+lastDetail.slice(0,140)):"")};
+}
+
+async function generar(){
+  if(!FILES.length){ toast("Subí al menos un PDF (la PV)","err"); return; }
+  if(!getKey()){ toast("Primero configurá tu clave gratis de Gemini (abajo)","err"); $("cfgDetails").open=true; $("cfgKey").focus(); return; }
+
+  $("errBox").style.display="none"; $("chatLog").innerHTML="";
+  $("btnGen").disabled=true; $("loader").classList.add("on"); $("loaderTxt").textContent="Leyendo los documentos con IA…";
+  SCROLL_NEXT=true;
+  try{
+    CONV=[{ role:"user", parts: await buildParts() }];
+    const r=await runTurn(t=>{ $("loaderTxt").textContent=t; });
+    if(!r.ok){ CONV=[]; $("errBox").innerHTML="⚠️ "+escapeHtml(r.error); $("errBox").style.display="block"; }
+  }catch(e){
+    CONV=[]; $("errBox").textContent="⚠️ "+(e.message||e); $("errBox").style.display="block";
+  }finally{
+    $("btnGen").disabled=false; $("loader").classList.remove("on");
+  }
+}
+
+/* ---------- Chat de correcciones ---------- */
+function addChatLine(kind, text){
+  const d=document.createElement("div"); d.className="cl "+kind; d.textContent=text;
+  $("chatLog").appendChild(d); $("chatLog").scrollTop=$("chatLog").scrollHeight;
+}
+async function enviarCorreccion(){
+  const msg=$("chatMsg").value.trim(); if(!msg) return;
+  if(!CONV.length){ toast("Primero generá una notificación","err"); return; }
+  $("chatMsg").value=""; addChatLine("user", msg);
+  CONV.push({ role:"user", parts:[{text:"Corrección del usuario: "+msg+"\nReescribí la notificación COMPLETA aplicando esta corrección y devolvé el JSON (asunto, destinatarios, cuerpo, escenario, notas)."}] });
+  const btn=$("btnChat"), old=btn.textContent; btn.disabled=true; btn.textContent="…"; SCROLL_NEXT=false;
+  const r=await runTurn();
+  btn.disabled=false; btn.textContent=old;
+  if(r.ok) addChatLine("ok","✓ Listo, actualicé la notificación de arriba. (Esta corrección aplica solo a esta notificación.)");
+  else { CONV.pop(); addChatLine("err","⚠️ "+r.error); }
+}
+$("btnChat").onclick=enviarCorreccion;
+$("chatMsg").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); enviarCorreccion(); } });
+
+function render(out){
+  $("pillEsc").textContent = ESC_LABEL[out.escenario] || out.escenario || "Notificación";
+  const det=[out.expediente, out.sindicato, out.empresa].filter(Boolean).join("  ·  ");
+  $("detRes").textContent = det;
+
+  let notifs = Array.isArray(out.notificaciones) && out.notificaciones.length ? out.notificaciones : null;
+  if(!notifs){ // compatibilidad con respuestas en formato viejo
+    notifs=[{ via:"Email", para:"", destinatarios:out.destinatarios||[], asunto:out.asunto||"", cuerpo:out.cuerpo||"" }];
+  }
+  const cont=$("notifList"); cont.innerHTML="";
+  const multi = notifs.length>1;
+  notifs.forEach((n,i)=> cont.appendChild(buildNotifBlock(n,i,multi,out.expediente)));
+
+  // texto interno (solo aperturas)
+  const iw=$("internoWrap"); iw.innerHTML="";
+  const ti=(out.texto_interno||"").trim();
+  if(ti){
+    const lbl=document.createElement("label"); lbl.className="lab"; lbl.textContent="📋 Texto interno"; iw.appendChild(lbl);
+    iw.appendChild(outBox(ti, 3, "Texto interno"));
+  }
+  // aviso de negritas
+  const hayBold = notifs.some(n=>/\*\*/.test(n.cuerpo||"")) || /\*\*/.test(ti);
+  $("boldHint").style.display = hayBold ? "block" : "none";
+
+  if(out.notas && out.notas.trim()){ $("notasBox").style.display="block"; $("notasBox").textContent="📝 "+out.notas; }
+  else $("notasBox").style.display="none";
+  $("cardOut").style.display="block";
+  if(SCROLL_NEXT){ $("cardOut").scrollIntoView({behavior:"smooth", block:"start"}); SCROLL_NEXT=false; }
+}
+
+// Copia conservando negritas: **texto** -> <b>texto</b> (HTML), para que Outlook las respete.
+async function copiarRich(text){
+  const s=String(text);
+  const plain=s.replace(/\*\*(.+?)\*\*/g,"$1");
+  const html=escapeHtml(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\n/g,"<br>");
+  try{
+    if(navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html":new Blob([html],{type:"text/html"}),
+        "text/plain":new Blob([plain],{type:"text/plain"})
+      })]);
+      return true;
+    }
+  }catch(e){}
+  try{ await copiar(plain); return true; }catch(e){ return false; }
+}
+
+function outBox(value, rows, title){
+  const box=document.createElement("div"); box.className="out-box";
+  const bar=document.createElement("div"); bar.className="copybar";
+  const t=document.createElement("span"); t.className="t"; t.textContent=title;
+  const b=document.createElement("button"); b.className="btn sec sm"; b.textContent="📋 Copiar";
+  const ta=document.createElement("textarea"); ta.rows=rows; ta.value=value||"";
+  b.onclick=()=>copiarRich(ta.value).then(ok=>toast(ok?"Copiado ✓":"No se pudo copiar", ok?"ok":"err"));
+  bar.appendChild(t); bar.appendChild(b); box.appendChild(bar); box.appendChild(ta);
+  return box;
+}
+function buildNotifBlock(n,i,multi,expediente){
+  const wrap=document.createElement("div"); wrap.className="notif";
+  const esTAD=String(n.via||"").toUpperCase().includes("TAD");
+  if(multi){
+    const h=document.createElement("div"); h.className="notifHead";
+    const badge=document.createElement("span"); badge.className="viaBadge "+(esTAD?"tad":"mail"); badge.textContent=esTAD?"🏛️ Por TAD (empresa)":"📧 Por Email";
+    h.appendChild(badge);
+    if(n.para){ const p=document.createElement("span"); p.className="paraTxt"; p.textContent=n.para; h.appendChild(p); }
+    wrap.appendChild(h);
+  }
+  if(esTAD){
+    const tad =
+      "Expediente: "+(expediente||"")+"\n"+
+      "Empresa: "+(n.para||"")+"\n"+
+      "CUIT: "+(n.cuit||"")+"\n"+
+      "Documentos a vincular: "+(n.documentos_a_vincular||"")+"\n"+
+      "Mensaje: "+(n.cuerpo||"");
+    const lbl=document.createElement("label"); lbl.className="lab"; lbl.textContent="Bloque para cargar en TAD"; wrap.appendChild(lbl);
+    wrap.appendChild(outBox(tad, 12, "TAD"));
+  }else{
+    const lblD=document.createElement("label"); lblD.className="lab"; lblD.textContent="Destinatarios (Para:)"; wrap.appendChild(lblD);
+    wrap.appendChild(outBox((n.destinatarios||[]).join("; "), 2, "Emails"));
+    const lblA=document.createElement("label"); lblA.className="lab"; lblA.textContent="Asunto"; wrap.appendChild(lblA);
+    wrap.appendChild(outBox(n.asunto, 2, "Asunto"));
+    const lblC=document.createElement("label"); lblC.className="lab"; lblC.textContent="Cuerpo"; wrap.appendChild(lblC);
+    wrap.appendChild(outBox(n.cuerpo, 14, "Cuerpo"));
+  }
+  return wrap;
+}
+
+/* ---------- Copiar ---------- */
+function copiar(t){
+  if(navigator.clipboard&&navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+  const a=document.createElement("textarea"); a.value=t; document.body.appendChild(a); a.select(); document.execCommand("copy"); a.remove(); return Promise.resolve();
+}
+$("btnCopyAll").onclick=()=>{
+  const tas=[...document.querySelectorAll("#notifList textarea, #internoWrap textarea")];
+  if(!tas.length) return;
+  const all=tas.map(t=>t.value).join("\n\n— — — — — — — — — —\n\n");
+  copiarRich(all).then(ok=>toast(ok?"Todo copiado ✓":"No se pudo copiar", ok?"ok":"err"));
+};
+$("btnNuevo").onclick=()=>{ FILES=[]; CONV=[]; renderFiles(); $("chatLog").innerHTML=""; $("cardOut").style.display="none"; $("errBox").style.display="none"; window.scrollTo({top:0,behavior:"smooth"}); };
+
+/* ---------- Config (clave) ---------- */
+$("btnSaveKey").onclick=()=>{
+  const k=$("cfgKey").value.trim(), m=$("cfgModel").value;
+  if(!k){ toast("Pegá la clave","err"); return; }
+  localStorage.setItem("dgrdt_gemini_key",k);
+  localStorage.setItem("dgrdt_gemini_model",m);
+  toast("Clave guardada ✓","ok"); $("cfgDetails").open=false;
+};
+
+/* ---------- Arranque ---------- */
+(function init(){
+  $("cfgKey").value=getKey();
+  $("cfgModel").value=getModel();
+  if(!getKey()){ $("cfgDetails").open=true; }   // si no hay clave, mostrar config
+})();
+</script>
+</body>
+</html>
