@@ -6,151 +6,163 @@
 <title>Notificador DGRDT</title>
 <style>
   :root{
-    --azul:#0a3d62; --azul2:#1565c0; --celeste:#e8f1fb; --gris:#f4f6f9;
-    --borde:#d7dee8; --texto:#1f2d3d; --suave:#6b7a90; --ok:#1e8e3e; --err:#c0392b;
-    --sombra:0 1px 3px rgba(10,61,98,.08),0 1px 2px rgba(10,61,98,.06);
+    --bg:#0d121b; --surface:#19212e; --surface-2:#212c3c; --surface-3:#2b3849;
+    --border:#2a3849; --border-strong:#3a4a5e;
+    --text:#e9eff7; --text-2:#aab7c7; --muted:#83909f;
+    --azul:#bcd6f7; --azul2:#4d9bff; --primary-700:#6aabff; --celeste:#17273d; --primary-100:#243a55;
+    --ok:#34d399; --ok-bg:#0f2620; --ok-bd:#235e46;
+    --warn:#fbbf24; --warn-bg:#2a2310; --warn-bd:#5a481c;
+    --err:#f87171; --err-bg:#2a1515; --err-bd:#5e2828;
+    --tad:#fb923c; --tad-bg:#2a1d11; --tad-bd:#5e3e1e;
+    --r-sm:8px; --r:10px; --r-lg:13px;
+    --sombra:0 1px 2px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.30);
+    --sombra-md:0 10px 30px rgba(0,0,0,.5);
+    --ring:0 0 0 3px rgba(77,155,255,.40);
   }
   *{box-sizing:border-box}
-  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;
-    background:var(--gris);color:var(--texto);font-size:15px;line-height:1.55}
-  header.top{background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff;padding:16px 22px;box-shadow:var(--sombra)}
-  header.top h1{font-size:20px;margin:0;font-weight:600}
-  header.top .sub{font-size:12.5px;opacity:.88;margin-top:2px}
-  main{max-width:780px;margin:0 auto;padding:22px 16px 70px}
-  .card{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:var(--sombra)}
+  html,body{height:100%}
+  html{color-scheme:dark;-webkit-text-size-adjust:100%}
+  body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 
-  #drop{border:2px dashed var(--azul2);border-radius:12px;padding:34px 20px;text-align:center;
-    background:var(--celeste);cursor:pointer;transition:.15s;color:var(--azul)}
-  #drop.drag{background:#d3e6fb;border-color:var(--azul)}
-  #drop strong{font-size:17px;display:block}
-  #drop span{display:block;color:var(--suave);font-size:13px;margin-top:6px}
+  header.top{flex:0 0 auto;background:linear-gradient(120deg,#0c3a5c 0%,#1f6fd0 100%);color:#fff;padding:9px 0;box-shadow:0 2px 10px rgba(0,0,0,.4);z-index:20}
+  header.top .wrap{max-width:1680px;margin:0 auto;padding:0 16px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  header.top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  header.top .sub{font-size:12px;opacity:.9}
+  main.grid{flex:1 1 auto;min-height:0;width:100%;max-width:1680px;margin:0 auto;padding:12px 14px;display:grid;grid-template-columns:300px minmax(0,1fr) 360px;gap:12px;overflow:hidden}
+  .col{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;overflow:auto;min-height:0}
+  .col-main{display:flex;flex-direction:column}
+  .panel-title{font-size:11.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin:0 0 11px}
+  .metaRow{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;margin-bottom:11px}
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--text-2);padding:20px;min-height:240px}
+  .empty .ei{font-size:38px;opacity:.5;margin-bottom:12px}
+  .empty .et{font-size:15px;color:var(--text);font-weight:600;margin-bottom:5px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:15px 17px;margin-bottom:13px;box-shadow:var(--sombra)}
 
-  #fileList{margin-top:14px;display:flex;flex-direction:column;gap:8px}
-  .fileItem{display:flex;align-items:center;gap:10px;background:#f7f9fc;border:1px solid var(--borde);border-radius:8px;padding:9px 12px}
-  .fileItem .ic{font-size:18px}
-  .fileItem .fname{flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .fileItem .frm{background:none;border:none;color:var(--err);cursor:pointer;font-size:17px;line-height:1;padding:0 4px}
+  #drop{border:1.5px dashed var(--azul2);border-radius:var(--r);padding:22px 20px;text-align:center;
+    background:var(--celeste);cursor:pointer;transition:background .15s,border-color .15s;color:var(--azul)}
+  #drop:hover{background:var(--primary-100)}
+  #drop.drag{background:var(--primary-100);border-color:#7fb4ff;border-style:solid}
+  #drop strong{font-size:15.5px;display:block;font-weight:600}
+  #drop span{display:block;color:var(--text-2);font-size:12.5px;margin-top:5px}
 
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
-  button.btn{background:var(--azul2);color:#fff;border:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:.15s}
-  button.btn:hover{background:#0d4ea0}
-  button.btn:disabled{background:#9db8d6;cursor:not-allowed}
-  button.btn.sec{background:#fff;color:var(--azul2);border:1px solid var(--azul2)}
-  button.btn.sec:hover{background:var(--celeste)}
-  button.btn.gris{background:#eef2f7;color:var(--texto);border:1px solid var(--borde)}
-  button.btn.sm{padding:7px 13px;font-size:13px}
+  #fileList{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+  .fileItem{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 12px}
+  .fileItem .ic{font-size:17px}
+  .fileItem .fname{flex:1;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fileItem .frm{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:2px 7px;border-radius:6px;transition:.12s}
+  .fileItem .frm:hover{color:var(--err);background:var(--err-bg)}
 
-  .big{width:100%;justify-content:center;font-size:16px;padding:14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:13px}
+  button.btn{background:var(--azul2);color:#072139;border:1px solid transparent;padding:10px 18px;border-radius:var(--r-sm);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;min-height:40px;transition:background .15s,box-shadow .15s,transform .06s}
+  button.btn:hover{background:var(--primary-700)}
+  button.btn:active{transform:translateY(1px)}
+  button.btn:focus-visible{outline:none;box-shadow:var(--ring)}
+  button.btn:disabled{background:#2c3a4d;color:#6c7b8f;cursor:not-allowed}
+  button.btn.sec{background:transparent;color:var(--azul2);border-color:#3a5a85}
+  button.btn.sec:hover{background:#192738}
+  button.btn.gris{background:var(--surface-3);color:var(--text);border-color:var(--border-strong)}
+  button.btn.gris:hover{background:#33445a}
+  button.btn.sm{padding:6px 12px;font-size:12.5px;min-height:32px}
+  .big{width:100%;justify-content:center;font-size:15.5px;padding:13px}
 
-  label.lab{display:block;font-size:12px;font-weight:700;color:var(--suave);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.5px}
-  input[type=text],input[type=password],textarea,select{width:100%;padding:10px 12px;border:1px solid var(--borde);border-radius:8px;font-size:14px;font-family:inherit;color:var(--texto);background:#fff}
-  textarea{resize:vertical;line-height:1.6}
-  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--azul2);box-shadow:0 0 0 3px rgba(21,101,192,.12)}
+  label.lab{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:12px 0 5px;text-transform:uppercase;letter-spacing:.6px}
+  input[type=text],input[type=password],textarea,select{width:100%;padding:9px 11px;border:1px solid var(--border-strong);border-radius:var(--r-sm);font-size:14px;font-family:inherit;color:var(--text);background:#121a26;transition:border-color .15s,box-shadow .15s}
+  textarea{resize:vertical;line-height:1.55}
+  input::placeholder,textarea::placeholder{color:#67778a}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--azul2);box-shadow:var(--ring)}
 
-  .out-box{position:relative;background:#fbfcfe;border:1px solid var(--borde);border-radius:8px;margin-bottom:6px}
-  .out-box .copybar{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-bottom:1px solid var(--borde);background:#f0f4f9;border-radius:8px 8px 0 0}
-  .out-box .copybar .t{font-size:12px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.5px}
-  .out-box textarea{border:none;background:transparent;border-radius:0 0 8px 8px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
-  .pill{display:inline-block;padding:4px 11px;border-radius:20px;font-size:12.5px;font-weight:600;background:#e8f5e9;color:#2e7d32}
-  .muted{color:var(--suave);font-size:13px}
-  .notas{background:#fff7e6;border:1px solid #ffe0a3;color:#8a5a00;padding:10px 13px;border-radius:8px;font-size:13.5px;margin-top:6px}
-  .err{background:#fdecea;border:1px solid #f5c6c0;color:#a5281b;padding:11px 14px;border-radius:8px;font-size:14px;margin-top:8px}
+  .out-box{position:relative;background:#141c28;border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:7px;overflow:hidden}
+  .out-box .copybar{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+  .out-box .copybar .t{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.6px}
+  .out-box textarea{border:none;background:transparent;border-radius:0;margin:0;max-height:300px}
+  .out-box textarea:focus{box-shadow:none}
 
-  #chatBox{margin-top:18px;border-top:1px solid var(--borde);padding-top:14px}
-  #chatLog{display:flex;flex-direction:column;gap:6px;margin:8px 0 10px;max-height:220px;overflow:auto}
-  #chatLog .cl{font-size:13.5px;padding:7px 11px;border-radius:9px;max-width:92%;white-space:pre-wrap}
-  #chatLog .cl.user{background:var(--celeste);align-self:flex-end;color:var(--azul)}
-  #chatLog .cl.ok{background:#e8f5e9;color:#2e7d32;align-self:flex-start;font-size:12.5px}
-  #chatLog .cl.err{background:#fdecea;color:#a5281b;align-self:flex-start;font-size:12.5px}
+  .pill{display:inline-flex;align-items:center;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:600;background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-bd)}
+  .muted{color:var(--muted);font-size:12.5px;line-height:1.5}
+  .notas{background:var(--warn-bg);border:1px solid var(--warn-bd);color:var(--warn);padding:10px 12px;border-radius:var(--r-sm);font-size:13px;margin-top:9px;line-height:1.5}
+  .err{background:var(--err-bg);border:1px solid var(--err-bd);color:var(--err);padding:10px 13px;border-radius:var(--r-sm);font-size:13.5px;margin-top:9px;line-height:1.45}
+
+  #chatBox{margin-top:14px;border-top:1px solid var(--border);padding-top:11px}
+  #chatBox>summary{cursor:pointer;font-weight:600;color:var(--azul2);font-size:13.5px;list-style:none;padding:2px 0}
+  #chatBox>summary::-webkit-details-marker{display:none}
+  #chatBox>summary::before{content:"▸";margin-right:7px;font-size:10px;color:var(--muted);display:inline-block;transition:transform .15s}
+  #chatBox[open]>summary::before{transform:rotate(90deg)}
+  #chatLog{display:flex;flex-direction:column;gap:6px;margin:10px 0;max-height:210px;overflow:auto}
+  #chatLog .cl{font-size:13px;padding:8px 11px;border-radius:11px;max-width:92%;white-space:pre-wrap;line-height:1.4}
+  #chatLog .cl.user{background:#274b80;color:#dbe9ff;align-self:flex-end;border-bottom-right-radius:4px}
+  #chatLog .cl.ok{background:var(--ok-bg);color:var(--ok);align-self:flex-start;font-size:12px}
+  #chatLog .cl.err{background:var(--err-bg);color:var(--err);align-self:flex-start;font-size:12px}
   .chatInput{display:flex;gap:8px}
   .chatInput input{flex:1}
 
-  .notif{border:1px solid var(--borde);border-radius:10px;padding:14px;margin-bottom:14px;background:#fcfdff}
-  .notif+.notif{border-top:3px solid var(--azul2)}
-  .notifHead{display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap}
-  .viaBadge{font-size:12.5px;font-weight:700;padding:4px 11px;border-radius:20px}
-  .viaBadge.mail{background:#e3f2fd;color:#1565c0}
-  .viaBadge.tad{background:#fde7d6;color:#b3541e}
-  .paraTxt{font-size:13px;color:var(--suave)}
+  .notif{border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;margin-bottom:12px;background:#151d29}
+  .notif+.notif{margin-top:2px}
+  .notifHead{display:flex;align-items:center;gap:10px;margin-bottom:5px;flex-wrap:wrap}
+  .viaBadge{font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:999px}
+  .viaBadge.mail{background:var(--celeste);color:#7fb4ff;border:1px solid var(--primary-100)}
+  .viaBadge.tad{background:var(--tad-bg);color:var(--tad);border:1px solid var(--tad-bd)}
+  .paraTxt{font-size:12.5px;color:var(--text-2);font-weight:500}
 
-  details.cfg{margin-top:4px}
-  details.cfg summary{cursor:pointer;font-weight:600;color:var(--azul2);font-size:14px}
-  a{color:var(--azul2)}
-  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:13px}
+  details.cfg{margin:0}
+  details.cfg summary{cursor:pointer;font-weight:600;color:var(--azul2);font-size:13.5px;list-style:none;padding:2px 0}
+  details.cfg summary::-webkit-details-marker{display:none}
+  details.cfg summary::before{content:"▸";margin-right:8px;font-size:10px;display:inline-block;transition:transform .15s;color:var(--muted)}
+  details.cfg[open] summary::before{transform:rotate(90deg)}
+  a{color:var(--azul2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{background:var(--surface-3);padding:1.5px 6px;border-radius:5px;font-size:12px;font-family:ui-monospace,Consolas,monospace}
 
-  .loader{display:none;align-items:center;gap:12px;margin-top:16px;color:var(--azul)}
+  .loader{display:none;align-items:center;gap:11px;margin-top:14px;color:#9fc4f5;font-size:13.5px}
   .loader.on{display:flex}
-  .spin{width:22px;height:22px;border:3px solid #cdddf0;border-top-color:var(--azul2);border-radius:50%;animation:sp .8s linear infinite}
+  .spin{width:20px;height:20px;border:3px solid var(--border-strong);border-top-color:var(--azul2);border-radius:50%;animation:sp .8s linear infinite;flex:0 0 auto}
   @keyframes sp{to{transform:rotate(360deg)}}
 
-  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--azul);color:#fff;
-    padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:#0a1018;border:1px solid var(--border-strong);color:#eef4fb;
+    padding:11px 18px;border-radius:var(--r);font-size:13.5px;box-shadow:var(--sombra-md);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:100}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.err{background:var(--err)}.toast.ok{background:var(--ok)}
+  .toast.err{background:#3a1717;border-color:var(--err-bd);color:#ffd9d6}.toast.ok{background:#0f2a20;border-color:var(--ok-bd);color:#c3f4dc}
+
+  @media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important} .spin{animation-duration:1.6s} }
+  @media (max-width:1100px){
+    body{height:auto;overflow:visible}
+    main.grid{grid-template-columns:1fr;overflow:visible;max-width:760px}
+    .col{overflow:visible}
+  }
+  @media (max-width:600px){ main.grid{padding:10px 10px 30px} .g2{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
 
 <header class="top">
-  <h1>📨 Notificador DGRDT</h1>
-  <div class="sub">Subí la Providencia (PV) y la presentación (RE) — la IA arma la notificación lista para Outlook.</div>
+  <div class="wrap">
+    <h1>📨 Notificador DGRDT</h1>
+    <div class="sub">Subí la Providencia (PV) y la presentación (RE) — la IA arma la notificación lista para Outlook.</div>
+  </div>
 </header>
 
-<main>
+<main class="grid">
 
-  <!-- PASO ÚNICO: SUBIR -->
-  <div class="card" id="cardUp">
+  <!-- COLUMNA 1 · CONTROLES -->
+  <aside class="col col-ctrl">
+    <div class="panel-title">📥 Documentos</div>
     <div id="drop">
-      <strong>📎 Arrastrá la PV y el RE acá</strong>
-      <span>o hacé clic para elegir los PDF (podés subir 1 o varios juntos)</span>
+      <strong>Arrastrá la PV y el RE</strong>
+      <span>o hacé clic para elegir los PDF</span>
     </div>
     <input type="file" id="fileInput" accept="application/pdf" multiple style="display:none" />
     <div id="fileList"></div>
-
-    <div class="row">
-      <button class="btn big" id="btnGen">✨ Generar notificación</button>
-    </div>
-
-    <div class="loader" id="loader"><div class="spin"></div><span id="loaderTxt">Leyendo los documentos con IA…</span></div>
+    <div class="row"><button class="btn big" id="btnGen">✨ Generar notificación</button></div>
+    <div class="loader" id="loader"><div class="spin"></div><span id="loaderTxt">Leyendo con IA…</span></div>
     <div class="err" id="errBox" style="display:none"></div>
-    <p class="muted" style="margin-top:14px">🔒 Los PDF se leen con la IA gratuita de Google (Gemini). No se guardan en ningún lado.</p>
-  </div>
 
-  <!-- RESULTADO -->
-  <div class="card" id="cardOut" style="display:none">
-    <div class="row" style="margin-top:0;justify-content:space-between">
-      <span class="pill" id="pillEsc">—</span>
-      <span class="muted" id="detRes"></span>
-    </div>
-
-    <div id="notifList"></div>
-    <div id="internoWrap"></div>
-    <p class="muted" id="boldHint" style="display:none">Lo que aparece entre <code>** **</code> se copia en <b>negrita</b> al pegar en Outlook (usá el botón 📋 Copiar).</p>
-
-    <div class="notas" id="notasBox" style="display:none"></div>
-
-    <div id="chatBox">
-      <label class="lab">💬 ¿Algo para corregir? Pedíselo a la IA y lo rehace</label>
-      <div id="chatLog"></div>
-      <div class="chatInput">
-        <input type="text" id="chatMsg" placeholder="Ej: notificá solo a la empresa; la audiencia es virtual; sacá ese párrafo…" />
-        <button class="btn" id="btnChat">Enviar</button>
-      </div>
-    </div>
-
-    <div class="row">
-      <button class="btn" id="btnCopyAll">📋 Copiar todo</button>
-      <button class="btn gris" id="btnNuevo">＋ Nueva notificación</button>
-    </div>
-  </div>
-
-  <!-- CONFIG (clave) -->
-  <div class="card">
-    <details class="cfg" id="cfgDetails">
-      <summary>⚙️ Clave de IA (Google Gemini) — gratis, se configura 1 sola vez</summary>
+    <details class="cfg" id="cfgDetails" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      <summary>⚙️ Clave de IA (Gemini)</summary>
       <label class="lab">API key de Gemini</label>
-      <input type="password" id="cfgKey" placeholder="Pegá acá tu clave (AIza...)" autocomplete="off" />
+      <input type="password" id="cfgKey" placeholder="Pegá tu clave (AIza...)" autocomplete="off" />
       <label class="lab">Modelo</label>
       <select id="cfgModel">
         <option value="gemini-2.0-flash">gemini-2.0-flash (recomendado)</option>
@@ -158,13 +170,50 @@
         <option value="gemini-1.5-flash">gemini-1.5-flash</option>
       </select>
       <div class="row"><button class="btn sm" id="btnSaveKey">Guardar clave</button></div>
-      <p class="muted" style="margin-top:12px">
-        ¿No tenés clave? Es gratis: entrá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>,
-        iniciá sesión con tu cuenta de Google, tocá <b>“Create API key”</b>, copiala y pegala acá arriba.
-      </p>
+      <p class="muted" style="margin-top:10px">¿No tenés? Gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> → “Create API key”.</p>
     </details>
+    <p class="muted" style="margin-top:12px">🔒 Los PDF se procesan con la IA gratuita de Google. No se guardan.</p>
+  </aside>
 
-  </div>
+  <!-- COLUMNA 2 · NOTIFICACIÓN -->
+  <section class="col col-main">
+    <div class="empty" id="emptyState">
+      <div class="ei">📄</div>
+      <div class="et">Acá va a aparecer la notificación</div>
+      <div class="muted">Subí la PV (y el RE) y tocá <b>Generar</b>.</div>
+    </div>
+    <div id="cardOut" style="display:none">
+      <div class="metaRow">
+        <span class="pill" id="pillEsc">—</span>
+        <span class="muted" id="detRes"></span>
+      </div>
+      <div id="notifList"></div>
+    </div>
+  </section>
+
+  <!-- COLUMNA 3 · EXTRAS Y ACCIONES -->
+  <aside class="col col-side">
+    <div class="panel-title">📋 Extras y acciones</div>
+    <div class="muted" id="sideHint">Acá aparecen la <b>Referencia GEDO</b>, el texto interno y las correcciones, después de generar.</div>
+    <div id="sidePanel" style="display:none">
+      <div id="refGedoWrap"></div>
+      <div id="internoWrap"></div>
+      <p class="muted" id="boldHint" style="display:none">Lo que está entre <code>** **</code> se copia en <b>negrita</b>.</p>
+      <div class="notas" id="notasBox" style="display:none"></div>
+      <details id="chatBox">
+        <summary>💬 Corregir con la IA</summary>
+        <div id="chatLog"></div>
+        <div class="chatInput">
+          <input type="text" id="chatMsg" placeholder="Ej: notificá solo a la empresa…" />
+          <button class="btn" id="btnChat">Enviar</button>
+        </div>
+      </details>
+      <div class="row">
+        <button class="btn" id="btnCopyAll">📋 Copiar todo</button>
+        <button class="btn gris" id="btnNuevo">＋ Nueva</button>
+      </div>
+    </div>
+  </aside>
 
 </main>
 
@@ -362,7 +411,7 @@ Para una APERTURA NORMAL (la empresa SÍ tiene email; todo por Email, una sola n
 texto_interno solo se completa en APERTURAS de audiencia; para otros tipos de documento dejalo vacío.
 === FIN ESCENARIO ESPECIAL ===
 
-Sindicatos frecuentes (sigla = nombre completo): FAECYS, SMATA, UPSRA, SUPASO, SUTHRA, UOCRA, UOM, UTEDYC, UTHGRA, UPCN, ATE, ALEARA, UTA, SUTERH, SADOP. Usá el nombre completo del sindicato si lo conocés o si aparece en el documento.
+Sindicatos frecuentes (sigla = nombre completo): FAECYS, SMATA, UPSRA, SUPASO, SUTHRA, UOCRA, UOM, UTEDYC, UTHGRA, UPCN, ATE, ALEARA, UTA, SUTERH, SADOP. Usá el nombre completo del sindicato si lo conocés o si aparece en el documento. En el campo "sigla" del JSON poné SIEMPRE la sigla corta del sindicato (ej. SMATA, SATTSAID, UOM, FAECYS).
 
 CONTACTOS CONOCIDOS (emails que la DGRDT ya tiene; usalos cuando una parte no traiga email en el documento):
 (— por ahora vacío; se completará con la lista del equipo —)
@@ -377,6 +426,7 @@ const SCHEMA = {
     escenario:{type:"STRING"},
     expediente:{type:"STRING"},
     sindicato:{type:"STRING"},
+    sigla:{type:"STRING"},
     empresa:{type:"STRING"},
     notificaciones:{ type:"ARRAY", items:{ type:"OBJECT", properties:{
       via:{type:"STRING"},
@@ -557,6 +607,13 @@ function render(out){
   const det=[out.expediente, out.sindicato, out.empresa].filter(Boolean).join("  ·  ");
   $("detRes").textContent = det;
 
+  // Referencia para GEDO (Notificación Fehaciente) — lista para copiar y pegar
+  const rw=$("refGedoWrap"); rw.innerHTML="";
+  const _h=new Date(); const _fref=_h.getDate()+"-"+(_h.getMonth()+1)+"-"+String(_h.getFullYear()).slice(2);
+  const _ref="NOTIF. FEHAC. "+(String(out.sigla||out.sindicato||"").trim())+" - "+(String(out.empresa||"").trim())+" "+_fref;
+  const _rl=document.createElement("label"); _rl.className="lab"; _rl.textContent="Referencia para GEDO"; rw.appendChild(_rl);
+  rw.appendChild(outBox(_ref, 1, "Referencia GEDO"));
+
   let notifs = Array.isArray(out.notificaciones) && out.notificaciones.length ? out.notificaciones : null;
   if(!notifs){ // compatibilidad con respuestas en formato viejo
     notifs=[{ via:"Email", para:"", destinatarios:out.destinatarios||[], asunto:out.asunto||"", cuerpo:out.cuerpo||"" }];
@@ -578,6 +635,7 @@ function render(out){
 
   if(out.notas && out.notas.trim()){ $("notasBox").style.display="block"; $("notasBox").textContent="📝 "+out.notas; }
   else $("notasBox").style.display="none";
+  { const es=$("emptyState"); if(es) es.style.display="none"; const sh=$("sideHint"); if(sh) sh.style.display="none"; const sp=$("sidePanel"); if(sp) sp.style.display=""; }
   $("cardOut").style.display="block";
   if(SCROLL_NEXT){ $("cardOut").scrollIntoView({behavior:"smooth", block:"start"}); SCROLL_NEXT=false; }
 }
@@ -629,12 +687,16 @@ function buildNotifBlock(n,i,multi,expediente){
     const lbl=document.createElement("label"); lbl.className="lab"; lbl.textContent="Bloque para cargar en TAD"; wrap.appendChild(lbl);
     wrap.appendChild(outBox(tad, 12, "TAD"));
   }else{
-    const lblD=document.createElement("label"); lblD.className="lab"; lblD.textContent="Destinatarios (Para:)"; wrap.appendChild(lblD);
-    wrap.appendChild(outBox((n.destinatarios||[]).join("; "), 2, "Emails"));
-    const lblA=document.createElement("label"); lblA.className="lab"; lblA.textContent="Asunto"; wrap.appendChild(lblA);
-    wrap.appendChild(outBox(n.asunto, 2, "Asunto"));
+    const g=document.createElement("div"); g.className="g2";
+    const cD=document.createElement("div");
+    const lblD=document.createElement("label"); lblD.className="lab"; lblD.textContent="Destinatarios (Para:)"; cD.appendChild(lblD);
+    cD.appendChild(outBox((n.destinatarios||[]).join("; "), 2, "Emails"));
+    const cA=document.createElement("div");
+    const lblA=document.createElement("label"); lblA.className="lab"; lblA.textContent="Asunto"; cA.appendChild(lblA);
+    cA.appendChild(outBox(n.asunto, 2, "Asunto"));
+    g.appendChild(cD); g.appendChild(cA); wrap.appendChild(g);
     const lblC=document.createElement("label"); lblC.className="lab"; lblC.textContent="Cuerpo"; wrap.appendChild(lblC);
-    wrap.appendChild(outBox(n.cuerpo, 14, "Cuerpo"));
+    wrap.appendChild(outBox(n.cuerpo, 10, "Cuerpo"));
     const bOWA=document.createElement("button"); bOWA.className="btn"; bOWA.style.marginTop="10px";
     bOWA.textContent="✉️ Abrir en Outlook web";
     bOWA.onclick=()=>abrirOWA(n);
@@ -664,7 +726,7 @@ $("btnCopyAll").onclick=()=>{
   const all=tas.map(t=>t.value).join("\n\n— — — — — — — — — —\n\n");
   copiarRich(all).then(ok=>toast(ok?"Todo copiado ✓":"No se pudo copiar", ok?"ok":"err"));
 };
-$("btnNuevo").onclick=()=>{ FILES=[]; CONV=[]; renderFiles(); $("chatLog").innerHTML=""; $("cardOut").style.display="none"; $("errBox").style.display="none"; window.scrollTo({top:0,behavior:"smooth"}); };
+$("btnNuevo").onclick=()=>{ FILES=[]; CONV=[]; renderFiles(); $("chatLog").innerHTML=""; $("cardOut").style.display="none"; { const es=$("emptyState"); if(es) es.style.display=""; const sh=$("sideHint"); if(sh) sh.style.display=""; const sp=$("sidePanel"); if(sp) sp.style.display="none"; } $("errBox").style.display="none"; };
 
 /* ---------- Config (clave) ---------- */
 $("btnSaveKey").onclick=()=>{
