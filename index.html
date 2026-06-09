@@ -328,13 +328,13 @@ NOTIFICACIÓN 1 — al SINDICATO, via="Email", destinatarios = SOLO el email del
 - Encabezado SINGULAR, solo el sindicato (sin la empresa): "Señor [NOMBRE COMPLETO SINDICATO] ([SIGLA]):"
 - NO lleva "atento a la presentación...". Arranca directo con "Por este medio se notifica la [PV]...".
 - Cierre SINGULAR: "Queda usted debidamente notificado."
+- ADJUNTOS: SOLO la PV (NO el RE). En el cuerpo va únicamente "Se adjunta [PV]".
 - La fecha y hora completa va en NEGRITA: envolvela entre ** ** (ej: **martes, 23 de junio de 2026, a las 10:30 horas**).
 cuerpo (PRESENCIAL):
 Señor [NOMBRE COMPLETO SINDICATO] ([SIGLA]):
 
 Por este medio se notifica la [PV] mediante la cual se señala fecha de audiencia para el día **[día, DD de mes de AAAA], a las [hora] horas** en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A.
 
-Se adjunta [RE]
 Se adjunta [PV]
 
 Queda usted debidamente notificado.
@@ -344,7 +344,6 @@ Señor [NOMBRE COMPLETO SINDICATO] ([SIGLA]):
 
 Por este medio se notifica la [PV] mediante la cual se fija audiencia virtual para el día **[día, DD de mes de AAAA], a las [hora] horas** por medio de la plataforma digital GOOGLE MEET, link: [LINK MEET]
 
-Se adjunta [RE]
 Se adjunta [PV]
 
 Queda usted debidamente notificado.
@@ -636,8 +635,22 @@ function buildNotifBlock(n,i,multi,expediente){
     wrap.appendChild(outBox(n.asunto, 2, "Asunto"));
     const lblC=document.createElement("label"); lblC.className="lab"; lblC.textContent="Cuerpo"; wrap.appendChild(lblC);
     wrap.appendChild(outBox(n.cuerpo, 14, "Cuerpo"));
+    const bOWA=document.createElement("button"); bOWA.className="btn"; bOWA.style.marginTop="10px";
+    bOWA.textContent="✉️ Abrir en Outlook web";
+    bOWA.onclick=()=>abrirOWA(n);
+    wrap.appendChild(bOWA);
+    const hint=document.createElement("div"); hint.className="muted"; hint.style.marginTop="6px";
+    hint.innerHTML="Abre el correo con <b>Para / Asunto / Cuerpo</b> cargados. Después, en Outlook: poné <b>De: relaciones.laborales</b>, <b>adjuntá</b> lo que dice el cuerpo (“Se adjunta…”) y enviá.";
+    wrap.appendChild(hint);
   }
   return wrap;
+}
+// Abre el Outlook web con el correo precargado (remitente y adjuntos se ponen a mano)
+function abrirOWA(n){
+  const to=encodeURIComponent((n.destinatarios||[]).join(";"));
+  const subject=encodeURIComponent(n.asunto||"");
+  const body=encodeURIComponent((n.cuerpo||"").replace(/\*\*(.+?)\*\*/g,"$1"));  // sin marcas ** de negrita
+  window.open("https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject+"&body="+body, "_blank", "noopener");
 }
 
 /* ---------- Copiar ---------- */
