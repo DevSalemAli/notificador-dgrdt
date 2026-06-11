@@ -779,14 +779,34 @@ function buildNotifBlock(n,i,multi,expediente){
   }
   return wrap;
 }
-// Abre el Outlook web con Para/Asunto cargados y COPIA el cuerpo con negritas
-// (el deeplink no soporta formato, por eso el cuerpo viaja por el portapapeles).
-async function abrirOWA(n){
-  const ok=await copiarRich(n.cuerpo||"");
+// Copia sincrónica con formato (negritas) — necesaria para no perder el "clic"
+// que el navegador exige para abrir la ventana de Outlook sin bloquearla.
+function copiarRichSync(text){
+  const s=String(text);
+  const html=escapeHtml(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\n/g,"<br>");
+  const div=document.createElement("div");
+  div.contentEditable="true";
+  div.style.position="fixed"; div.style.left="-9999px"; div.style.opacity="0";
+  div.innerHTML=html;
+  document.body.appendChild(div);
+  const range=document.createRange(); range.selectNodeContents(div);
+  const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  let ok=false; try{ ok=document.execCommand("copy"); }catch(e){}
+  sel.removeAllRanges(); div.remove();
+  return ok;
+}
+
+// Abre el Outlook web con Para/Asunto cargados y deja el cuerpo copiado con negritas.
+// La copia va PRIMERO y sin esperas, y la ventana se abre en el mismo clic
+// (si se espera algo antes de window.open, el navegador la bloquea como pop-up).
+function abrirOWA(n){
+  const okSync=copiarRichSync(n.cuerpo||"");
   const to=encodeURIComponent((n.destinatarios||[]).join(";"));
   const subject=encodeURIComponent(n.asunto||"");
-  window.open("https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject, "_blank", "noopener");
-  toast(ok ? "Cuerpo copiado con negritas — pegalo con Ctrl+V en el mail" : "Mail abierto; copiá el cuerpo con su botón 📋", ok?"ok":"err");
+  const win=window.open("https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject, "_blank", "noopener");
+  if(okSync) toast("Cuerpo copiado con negritas — pegalo con Ctrl+V en el mail","ok");
+  else copiarRich(n.cuerpo||"").then(ok=>toast(ok?"Cuerpo copiado con negritas — pegalo con Ctrl+V en el mail":"Mail abierto. Copiá el cuerpo con su botón 📋", ok?"ok":"err"));
+  if(!win) toast("El navegador bloqueó la ventana — permití los pop-ups de este sitio","err");
 }
 
 /* ---------- Historial (se guarda en este navegador) ---------- */
