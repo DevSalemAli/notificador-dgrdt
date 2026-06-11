@@ -112,11 +112,6 @@
   .histItem .hi1{font-size:12.5px;color:var(--text);font-weight:600}
   .histItem .hi2{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  .adjChip{display:flex;align-items:center;gap:9px;background:#141c28;border:1px dashed var(--border-strong);border-radius:var(--r-sm);padding:9px 11px;margin-top:7px;cursor:grab;user-select:none}
-  .adjChip:active{cursor:grabbing}
-  .adjChip:hover{border-color:var(--azul2);background:var(--surface-2)}
-  .adjChip .fname{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
   details.cfg{margin:0}
   details.cfg summary{cursor:pointer;font-weight:600;color:var(--azul2);font-size:13.5px;list-style:none;padding:2px 0}
   details.cfg summary::-webkit-details-marker{display:none}
@@ -213,11 +208,6 @@
     <div class="muted" id="sideHint">Acá aparecen la <b>Referencia GEDO</b>, el texto interno y las correcciones, después de generar.</div>
     <div id="sidePanel" style="display:none">
       <div id="refGedoWrap"></div>
-      <div id="adjWrap" style="display:none">
-        <label class="lab">📎 Adjuntos — arrastralos al mail</label>
-        <div id="adjList"></div>
-        <p class="muted">Abrí el mail con el botón ✉️ y <b>arrastrá estas fichas adentro del correo</b> para adjuntarlas (conviene acomodar las dos ventanas para verlas juntas).</p>
-      </div>
       <div id="internoWrap"></div>
       <p class="muted" id="boldHint" style="display:none">Lo que está entre <code>** **</code> se copia en <b>negrita</b>.</p>
       <div class="notas" id="notasBox" style="display:none"></div>
@@ -599,27 +589,6 @@ function renderFiles(){
   });
 }
 
-/* ---------- Adjuntos arrastrables (los PDF subidos, para soltarlos en el mail) ---------- */
-function renderAdjuntos(){
-  const box=$("adjList"), wrap=$("adjWrap"); if(!box||!wrap) return;
-  box.innerHTML="";
-  if(!FILES.length){ wrap.style.display="none"; return; }
-  wrap.style.display="";
-  FILES.forEach(f=>{
-    const chip=document.createElement("div"); chip.className="adjChip"; chip.draggable=true; chip.title="Arrastrame al correo abierto";
-    const ic=document.createElement("span"); ic.className="ic"; ic.textContent="📎";
-    const nm=document.createElement("span"); nm.className="fname"; nm.textContent=f.name;
-    chip.appendChild(ic); chip.appendChild(nm);
-    const urlObj=URL.createObjectURL(f);
-    chip.addEventListener("dragstart",e=>{
-      try{ e.dataTransfer.items.add(f); }catch(_){}
-      try{ e.dataTransfer.setData("DownloadURL","application/pdf:"+f.name+":"+urlObj); }catch(_){}
-      e.dataTransfer.effectAllowed="copy";
-    });
-    box.appendChild(chip);
-  });
-}
-
 /* ---------- Generar (llamar a Gemini) ---------- */
 $("btnGen").onclick = generar;
 const MODEL_FALLBACK = ["gemini-2.5-flash","gemini-2.0-flash","gemini-2.0-flash-lite","gemini-1.5-flash"];
@@ -693,7 +662,7 @@ async function generar(){
     CONV=[{ role:"user", parts: await buildParts() }];
     const r=await runTurn(t=>{ $("loaderTxt").textContent=t; });
     if(!r.ok){ CONV=[]; $("errBox").innerHTML="⚠️ "+escapeHtml(r.error); $("errBox").style.display="block"; }
-    else { pushHist(LAST_OUT); renderAdjuntos(); }
+    else pushHist(LAST_OUT);
   }catch(e){
     CONV=[]; $("errBox").textContent="⚠️ "+(e.message||e); $("errBox").style.display="block";
   }finally{
@@ -876,7 +845,7 @@ function renderHist(){
     const it=document.createElement("div"); it.className="histItem";
     it.innerHTML='<div class="hi1">'+escapeHtml(f+"  ·  "+(o.expediente||"(sin EX)"))+'</div>'+
                  '<div class="hi2">'+escapeHtml([o.sigla||o.sindicato,o.empresa].filter(Boolean).join(" - ")||"—")+'</div>';
-    it.onclick=()=>{ CONV=[]; SCROLL_NEXT=false; render(o); const aw=$("adjWrap"); if(aw) aw.style.display="none"; toast("Restaurada del historial (para corregir por chat hay que regenerarla)","ok"); };
+    it.onclick=()=>{ CONV=[]; SCROLL_NEXT=false; render(o); toast("Restaurada del historial (para corregir por chat hay que regenerarla)","ok"); };
     box.appendChild(it);
   });
 }
