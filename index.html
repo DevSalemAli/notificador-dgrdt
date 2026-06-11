@@ -790,7 +790,7 @@ function buildNotifBlock(n,i,multi,expediente){
     bOWA.onclick=()=>abrirOWA(n);
     wrap.appendChild(bOWA);
     const hint=document.createElement("div"); hint.className="muted"; hint.style.marginTop="6px";
-    hint.innerHTML="Abre el correo con <b>Para/Asunto</b> y te copia el cuerpo con <b>negritas</b>: pegalo con <b>Ctrl+V</b>. Después: <b>De: relaciones.laborales</b>, adjuntá lo que dice “Se adjunta…” y enviá.";
+    hint.innerHTML="Abre el correo completo (Para/Asunto/Cuerpo). Para aplicar las <b>negritas</b>: clic en el cuerpo, <b>Ctrl+A</b> y <b>Ctrl+V</b>. Después: <b>De: relaciones.laborales</b>, adjuntá lo que dice “Se adjunta…” y enviá.";
     wrap.appendChild(hint);
   }
   return wrap;
@@ -812,16 +812,20 @@ function copiarRichSync(text){
   return ok;
 }
 
-// Abre el Outlook web con Para/Asunto cargados y deja el cuerpo copiado con negritas.
-// La copia va PRIMERO y sin esperas, y la ventana se abre en el mismo clic
-// (si se espera algo antes de window.open, el navegador la bloquea como pop-up).
+// Abre el Outlook web con Para/Asunto y el CUERPO ya cargado (en texto plano,
+// porque el deeplink no soporta formato). Además deja el cuerpo copiado CON
+// negritas: en el mail, Ctrl+A dentro del cuerpo y Ctrl+V lo reemplaza formateado.
+// window.open va en el mismo clic, sin esperas (si no, el navegador lo bloquea).
 function abrirOWA(n){
+  const hayBold=/\*\*/.test(n.cuerpo||"");
   const okSync=copiarRichSync(n.cuerpo||"");
+  if(!okSync) copiarRich(n.cuerpo||"");   // plan B asincrónico, iniciado con el documento aún en foco
   const to=encodeURIComponent((n.destinatarios||[]).join(";"));
   const subject=encodeURIComponent(n.asunto||"");
-  const win=window.open("https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject, "_blank", "noopener");
-  if(okSync) toast("Cuerpo copiado con negritas — pegalo con Ctrl+V en el mail","ok");
-  else copiarRich(n.cuerpo||"").then(ok=>toast(ok?"Cuerpo copiado con negritas — pegalo con Ctrl+V en el mail":"Mail abierto. Copiá el cuerpo con su botón 📋", ok?"ok":"err"));
+  const body=encodeURIComponent((n.cuerpo||"").replace(/\*\*(.+?)\*\*/g,"$1"));
+  const win=window.open("https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject+"&body="+body, "_blank", "noopener");
+  toast(hayBold ? "Mail abierto con todo cargado ✓ — para las negritas: clic en el cuerpo, Ctrl+A y Ctrl+V"
+                : "Mail abierto con todo cargado ✓","ok");
   if(!win) toast("El navegador bloqueó la ventana — permití los pop-ups de este sitio","err");
 }
 
