@@ -107,6 +107,11 @@
   .viaBadge.tad{background:var(--tad-bg);color:var(--tad);border:1px solid var(--tad-bd)}
   .paraTxt{font-size:12.5px;color:var(--text-2);font-weight:500}
 
+  .histItem{padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm);margin-top:7px;cursor:pointer;background:#141c28;transition:background .12s,border-color .12s}
+  .histItem:hover{background:var(--surface-2);border-color:var(--border-strong)}
+  .histItem .hi1{font-size:12.5px;color:var(--text);font-weight:600}
+  .histItem .hi2{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
   details.cfg{margin:0}
   details.cfg summary{cursor:pointer;font-weight:600;color:var(--azul2);font-size:13.5px;list-style:none;padding:2px 0}
   details.cfg summary::-webkit-details-marker{display:none}
@@ -165,12 +170,18 @@
       <input type="password" id="cfgKey" placeholder="Pegá tu clave (AIza...)" autocomplete="off" />
       <label class="lab">Modelo</label>
       <select id="cfgModel">
-        <option value="gemini-2.0-flash">gemini-2.0-flash (recomendado)</option>
-        <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+        <option value="gemini-2.5-flash">gemini-2.5-flash (recomendado)</option>
+        <option value="gemini-2.0-flash">gemini-2.0-flash (más rápido)</option>
         <option value="gemini-1.5-flash">gemini-1.5-flash</option>
       </select>
       <div class="row"><button class="btn sm" id="btnSaveKey">Guardar clave</button></div>
       <p class="muted" style="margin-top:10px">¿No tenés? Gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> → “Create API key”.</p>
+    </details>
+
+    <details class="cfg" id="histDetails" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+      <summary>🕘 Historial</summary>
+      <div id="histList"></div>
+      <div class="row"><button class="btn gris sm" id="btnClearHist">Vaciar historial</button></div>
     </details>
     <p class="muted" style="margin-top:12px">🔒 Los PDF se procesan con la IA gratuita de Google. No se guardan.</p>
   </aside>
@@ -249,7 +260,7 @@ IMPORTANTE:
 - Respetá EXACTAMENTE el espaciado de las plantillas: línea en blanco después de "Señores ...:", línea en blanco antes de "Se adjunta...", los varios "Se adjunta" van pegados entre sí (sin línea en blanco), y línea en blanco antes de "Quedan ustedes debidamente notificados.".
 - Encabezado CON presentación: "Señores SINDICATO (SIGLA) y EMPRESA:". SIN presentación con varias partes: "Señores SINDICATO (SIGLA) - EMPRESA1 - EMPRESA2 y EMPRESA3:" (se separan con " - " y la última con " y ").
 
-HAY 9 ESCENARIOS. Elegí EXACTAMENTE uno (campo "escenario" con la clave entre paréntesis) y completá las plantillas con los datos reales:
+HAY 10 ESCENARIOS. Elegí EXACTAMENTE uno (campo "escenario" con la clave entre paréntesis) y completá las plantillas con los datos reales:
 
 1) audiencia_presencial — PV que dice "atento a la presentación efectuada por..." y es presencial (Bartolomé Mitre 575).
 ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA [PV].
@@ -322,7 +333,7 @@ Se adjunta [PV]
 
 Quedan ustedes debidamente notificados.
 
-7) reserva — Acta de audiencia donde comparecen ambas partes y se ordena la reserva del expediente.
+7) reserva — Acta de audiencia donde comparecen ambas partes y se ordena la reserva del expediente, SIN fijar nueva fecha de audiencia. (Si el acta además fija nueva fecha, NO uses este: usá acta_firma_nueva_fecha.)
 ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA ACTA DE AUD. DEL [DD/M/AAAA del acta]
 CUERPO:
 Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
@@ -367,6 +378,32 @@ Por este medio, se notifica el acto administrativo emanado de las presentes actu
 
 Quedan ustedes debidamente notificados.
 
+10) acta_firma_nueva_fecha — Acta de audiencia donde comparecen AMBAS partes, se remite el acta para FIRMAR y ADEMÁS se fija nueva fecha de audiencia (combinación de reserva + nueva audiencia). La nueva audiencia puede ser virtual (GOOGLE MEET con link) o presencial. Se notifica a AMBAS partes.
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA ACTA DE AUD. DEL [DD/M/AAAA del acta]
+CUERPO (si la nueva audiencia es VIRTUAL):
+Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
+
+En virtud de la audiencia llevada a cabo en el día de la fecha, se remite el acta labrada en ese acto a los fines de su firma. Una vez suscripta por los representantes de ambas partes, nos la deben enviar escaneada por este medio en el plazo de 48 horas bajo apercibimiento de tenerlos por no presentados.
+
+Asimismo, se fija nueva fecha de audiencia virtual para el día **[día], [DD] de [mes] de [AAAA] a las [HH:MM] horas** por medio de la plataforma digital GOOGLE MEET, link: [LINK MEET]
+
+Se adjunta ACTA DE AUDIENCIA DEL [DD/M/AAAA] PARA FIRMAR - [IF].
+
+Quedan ustedes debidamente notificados.
+
+CUERPO (si la nueva audiencia es PRESENCIAL):
+Señores [NOMBRE SINDICATO] ([SIGLA]) y [EMPRESA]:
+
+En virtud de la audiencia llevada a cabo en el día de la fecha, se remite el acta labrada en ese acto a los fines de su firma. Una vez suscripta por los representantes de ambas partes, nos la deben enviar escaneada por este medio en el plazo de 48 horas bajo apercibimiento de tenerlos por no presentados.
+
+Asimismo, se fija nueva fecha de audiencia para el día **[día], [DD] de [mes] de [AAAA] a las [HH:MM] horas** en la sede de la Secretaria de Trabajo y Empleo del Gobierno de la Ciudad de Buenos Aires, Dirección General Relaciones del Trabajo, Gerencia Operativa Relaciones Laborales Colectivas, sita en Bartolomé Mitre 575, P.B., C.A.B.A.
+
+Se adjunta ACTA DE AUDIENCIA DEL [DD/M/AAAA] PARA FIRMAR - [IF].
+
+Quedan ustedes debidamente notificados.
+
+TEXTO INTERNO de este escenario: usá el ítem 7 del catálogo si la nueva audiencia es virtual, o el ítem 6 si es presencial.
+
 === ESCENARIO ESPECIAL: EMPRESA SIN EMAIL → NOTIFICACIÓN POR TAD ===
 APLICA cuando: (a) es una PV de APERTURA de audiencia (presencial o virtual) con presentación (RE/IF), y (b) NO hay email atribuible a la EMPRESA.
 Para saber el email de la empresa: buscalo en el bloque de datos de la empresa requerida (en presentaciones FAECYS suele estar bajo "-II- DATOS DE LA EMPRESA REQUERIDA", o el renglón "correo electrónico" de la empresa). El email del SINDICATO casi siempre está; el de la EMPRESA es el que puede faltar. NO tomes como email de la empresa un correo que aparezca en el relato/denuncia (puede ser de un tercero); solo el del bloque de datos de la empresa.
@@ -404,19 +441,50 @@ Por este medio, atento a la presentación efectuada por [el/la] [NOMBRE COMPLETO
 cuerpo (TAD VIRTUAL):
 Por este medio, atento a la presentación efectuada por [el/la] [NOMBRE COMPLETO SINDICATO] ([SIGLA]) - [RE] - se notifica la [PV] mediante la cual se fija audiencia virtual para el día [día, DD de mes de AAAA], a las [hora] horas por medio de la plataforma digital GOOGLE MEET, link: [LINK MEET] Queda usted debidamente notificado.
 
-TEXTO INTERNO (campo texto_interno) — poné en NEGRITA (entre ** **) la parte "APERTURA ...":
-- PRESENCIAL: **APERTURA [EX] [SIGLA] - [EMPRESA]**. PTCIÓN [SIGLA]. SE FIJÓ FECHA DE AUD. PARA EL [DD/M], [HH] Hs. SE GENERÓ PV. NOTIFICADO SINDICATO POR MAIL Y EMPRESA POR TAD. VINCULADO. AGENDADO.
-- VIRTUAL: **APERTURA [EX] [SIGLA] - [EMPRESA]**. PTCIÓN [SIGLA]. SE FIJÓ AUD. VIRTUAL PARA EL [DD/M], [HH] Hs. SE GENERÓ PV. NOTIFICADO SINDICATO POR MAIL Y EMPRESA POR TAD. VINCULADO. AGENDADO.
-Para una APERTURA NORMAL (la empresa SÍ tiene email; todo por Email, una sola notificación combinada) el texto_interno es igual pero termina en "... NOTIFICADO. VINCULADO. AGENDADO." (sin la parte de TAD).
-texto_interno solo se completa en APERTURAS de audiencia; para otros tipos de documento dejalo vacío.
+TEXTO INTERNO: usá el ítem 3 (presencial) o 4 (virtual) del CATÁLOGO DE TEXTOS INTERNOS de abajo.
 === FIN ESCENARIO ESPECIAL ===
+
+=== CATÁLOGO DE TEXTOS INTERNOS (campo texto_interno) — COMPLETALO SIEMPRE ===
+Además de la notificación, generá SIEMPRE el texto interno: es lo que el empleado carga en el sistema interno (distinto del cuerpo del mail). Elegí UN ítem del catálogo según lo que pasó en el documento.
+REGLAS DE FORMATO:
+- La identificación inicial va en NEGRITA entre ** **: **APERTURA [EX] [SIGLA] - [EMPRESA]** en aperturas; **[EX] [SIGLA] - [EMPRESA]** en el resto.
+- Fechas en formato corto D/M SIN año (ej: 23/6). Horas en formato HH:MM Hs (normalizá "10.30" → "10:30").
+- [QUIEN] = quién hizo la presentación: la SIGLA del sindicato, o la palabra EMPRESA.
+- No inventes datos: si falta fecha/hora, dejá «FALTA: ...».
+
+1) APERTURA presencial (empresa CON email):
+**APERTURA [EX] [SIGLA] - [EMPRESA]**. PTCIÓN [SIGLA]. SE FIJÓ FECHA DE AUD. PARA EL [D/M], [HH:MM] Hs. SE GENERÓ PV. NOTIFICADO. VINCULADO. AGENDADO.
+2) APERTURA virtual (empresa CON email):
+**APERTURA [EX] [SIGLA] - [EMPRESA]**. PTCIÓN [SIGLA]. SE FIJÓ AUD. VIRTUAL PARA EL [D/M], [HH:MM] Hs. SE GENERÓ PV. NOTIFICADO. VINCULADO. AGENDADO.
+3) APERTURA presencial con empresa SIN email (TAD): igual al ítem 1 pero reemplazando "NOTIFICADO." por "NOTIFICADO SINDICATO POR MAIL Y EMPRESA POR TAD."
+4) APERTURA virtual con empresa SIN email (TAD): igual al ítem 2 pero reemplazando "NOTIFICADO." por "NOTIFICADO SINDICATO POR MAIL Y EMPRESA POR TAD."
+5) CAMBIO DE FECHA con presentación:
+**[EX] [SIGLA] - [EMPRESA]**. PTCIÓN [QUIEN]. SOLICITANDO CAMBIO DE FECHA DE AUD. [número IF/RE de la presentación]. SE FIJÓ AUDIENCIA PARA EL DIA [D/M], [HH:MM] Hs. SE GENERÓ PV Y NOTIFICACION. VINCULADO. AGENDADO.
+5b) CAMBIO DE FECHA sin presentación:
+**[EX] [SIGLA] - [EMPRESA]**. SE FIJÓ AUDIENCIA PARA EL DIA [D/M], [HH:MM] Hs. SE GENERÓ PV Y NOTIFICACION. VINCULADO. AGENDADO.
+6) ACTA: comparecen AMBAS partes y se fija nueva fecha (presencial):
+**[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. COMPARECEN AMBAS PARTES, SE FIJÓ NVA. FECHA DE AUD. PARA EL [D/M], [HH:MM] Hs. VINCULADO. AGENDADO.
+7) ACTA: comparecen AMBAS partes y se fija nueva fecha VIRTUAL:
+**[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. COMPARECEN AMBAS PARTES. SE FIJÓ NVA. FECHA DE AUD. VIRTUAL PARA EL [D/M], [HH:MM] Hs. SE GENERÓ ACTA. VINCULADO. AGENDADO.
+8) ACTA: EMPRESA AUSENTE y se fija nueva fecha:
+**[EX] [SIGLA] - [EMPRESA]**. PTCIÓN [SIGLA]. SE FIJÓ NVA. FECHA DE AUD. PARA EL [D/M], [HH:MM] Hs. SE GENERÓ PV. NOTIFICADO. VINCULADO. AGENDADO.
+9) ACTA: reserva SIN nueva fecha (comparecen ambas):
+**[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. RESERVA POR 10 DIAS. SE GENERÓ ACTA. VINCULADO.
+10) ACTA: guarda/reserva con EMPRESA AUSENTE:
+**[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. RESERVA. SE GENERÓ ACTA. VINCULADO.
+11) ACTA: ACUERDO entre las partes:
+**[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. ACUERDO. SE GENERÓ ACTA. VINCULADO. PENDIENTE ACTO ADMINISTRATIVO.
+12) ACTA firma ológrafa con ambas partes y nueva fecha: usá el mismo texto del ítem 6.
+13) ACTO ADMINISTRATIVO (Resolución o Disposición que registra un acuerdo):
+**[EX] [SIGLA] - [EMPRESA]**. SE REGISTRÓ ACUERDO MEDIANTE [DISPOSICIÓN si el doc es DI- / RESOLUCIÓN si es RESOL-]. SE GENERÓ ACTO ADMINISTRATIVO. NOTIFICADO. VINCULADO.
+=== FIN CATÁLOGO DE TEXTOS INTERNOS ===
 
 Sindicatos frecuentes (sigla = nombre completo): FAECYS, SMATA, UPSRA, SUPASO, SUTHRA, UOCRA, UOM, UTEDYC, UTHGRA, UPCN, ATE, ALEARA, UTA, SUTERH, SADOP. Usá el nombre completo del sindicato si lo conocés o si aparece en el documento. En el campo "sigla" del JSON poné SIEMPRE la sigla corta del sindicato (ej. SMATA, SATTSAID, UOM, FAECYS).
 
 CONTACTOS CONOCIDOS (emails que la DGRDT ya tiene; usalos cuando una parte no traiga email en el documento):
 (— por ahora vacío; se completará con la lista del equipo —)
 
-Devolvé SOLO el JSON pedido. Cada elemento de "notificaciones" debe tener: via ("Email" o "TAD"), para (a quién va, ej. "Sindicato (SMATA)" o "Empresa LUIS JD SCORZA Y CIA S.A."), destinatarios (lista de emails; vacía si via="TAD"), asunto y cuerpo COMPLETOS (sin corchetes ni placeholders, salvo «FALTA: ...» si de verdad falta un dato). En las notificaciones por TAD agregá además cuit y documentos_a_vincular. Completá texto_interno solo en aperturas de audiencia. Las negritas se marcan con ** ** (doble asterisco). Normalmente hay 1 notificación; puede haber 2 si se separan canales (Email/TAD).`;
+Devolvé SOLO el JSON pedido. Cada elemento de "notificaciones" debe tener: via ("Email" o "TAD"), para (a quién va, ej. "Sindicato (SMATA)" o "Empresa LUIS JD SCORZA Y CIA S.A."), destinatarios (lista de emails; vacía si via="TAD"), asunto y cuerpo COMPLETOS (sin corchetes ni placeholders, salvo «FALTA: ...» si de verdad falta un dato). En las notificaciones por TAD agregá además cuit y documentos_a_vincular. Completá texto_interno solo en aperturas de audiencia. Las negritas se marcan con ** ** (doble asterisco). Normalmente hay 1 notificación; puede haber 2 si se separan canales (Email/TAD). Completá SIEMPRE el campo texto_interno eligiendo el ítem correcto del CATÁLOGO DE TEXTOS INTERNOS.`;
 
 /* ---------- Esquema de salida (JSON estructurado) ---------- */
 const SCHEMA = {
@@ -452,6 +520,7 @@ const ESC_LABEL = {
   cambio_fecha_sin_presentacion:"Cambio de fecha (sin presentación)",
   reserva:"Reserva / acta para firma",
   nueva_audiencia_acta:"Nueva audiencia desde acta",
+  acta_firma_nueva_fecha:"Acta para firma + nueva audiencia",
   resolucion:"Resolución / acto administrativo"
 };
 
@@ -459,7 +528,7 @@ const ESC_LABEL = {
 const $ = id => document.getElementById(id);
 function toast(msg, kind){ const t=$("toast"); t.textContent=msg; t.className="toast show "+(kind||""); clearTimeout(t._t); t._t=setTimeout(()=>t.className="toast",2800); }
 function getKey(){ return localStorage.getItem("dgrdt_gemini_key")||""; }
-function getModel(){ return localStorage.getItem("dgrdt_gemini_model")||"gemini-2.0-flash"; }
+function getModel(){ return localStorage.getItem("dgrdt_gemini_model")||"gemini-2.5-flash"; }
 
 async function fileToBase64(file){
   const buf = await file.arrayBuffer();
@@ -481,6 +550,7 @@ function parseRetryDelay(data){
 let FILES = [];
 let CONV = [];            // conversación con la IA (para corregir por chat)
 let SCROLL_NEXT = false;  // si el próximo render debe centrar el resultado
+let LAST_OUT = null;      // última respuesta renderizada (para el historial)
 const drop=$("drop"), fileInput=$("fileInput");
 drop.onclick=()=>fileInput.click();
 drop.ondragover=e=>{e.preventDefault();drop.classList.add("drag");};
@@ -505,7 +575,7 @@ function renderFiles(){
 
 /* ---------- Generar (llamar a Gemini) ---------- */
 $("btnGen").onclick = generar;
-const MODEL_FALLBACK = ["gemini-2.0-flash","gemini-2.5-flash","gemini-2.0-flash-lite","gemini-1.5-flash"];
+const MODEL_FALLBACK = ["gemini-2.5-flash","gemini-2.0-flash","gemini-2.0-flash-lite","gemini-1.5-flash"];
 
 // Arma el contenido para la IA: manda el PDF completo (la IA lo lee tal cual, con los emails intactos).
 async function buildParts(){
@@ -576,6 +646,7 @@ async function generar(){
     CONV=[{ role:"user", parts: await buildParts() }];
     const r=await runTurn(t=>{ $("loaderTxt").textContent=t; });
     if(!r.ok){ CONV=[]; $("errBox").innerHTML="⚠️ "+escapeHtml(r.error); $("errBox").style.display="block"; }
+    else pushHist(LAST_OUT);
   }catch(e){
     CONV=[]; $("errBox").textContent="⚠️ "+(e.message||e); $("errBox").style.display="block";
   }finally{
@@ -596,13 +667,14 @@ async function enviarCorreccion(){
   const btn=$("btnChat"), old=btn.textContent; btn.disabled=true; btn.textContent="…"; SCROLL_NEXT=false;
   const r=await runTurn();
   btn.disabled=false; btn.textContent=old;
-  if(r.ok) addChatLine("ok","✓ Listo, actualicé la notificación de arriba. (Esta corrección aplica solo a esta notificación.)");
+  if(r.ok){ addChatLine("ok","✓ Listo, actualicé la notificación de arriba. (Esta corrección aplica solo a esta notificación.)"); updateHistLast(LAST_OUT); }
   else { CONV.pop(); addChatLine("err","⚠️ "+r.error); }
 }
 $("btnChat").onclick=enviarCorreccion;
 $("chatMsg").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); enviarCorreccion(); } });
 
 function render(out){
+  LAST_OUT = out;
   $("pillEsc").textContent = ESC_LABEL[out.escenario] || out.escenario || "Notificación";
   const det=[out.expediente, out.sindicato, out.empresa].filter(Boolean).join("  ·  ");
   $("detRes").textContent = det;
@@ -702,17 +774,40 @@ function buildNotifBlock(n,i,multi,expediente){
     bOWA.onclick=()=>abrirOWA(n);
     wrap.appendChild(bOWA);
     const hint=document.createElement("div"); hint.className="muted"; hint.style.marginTop="6px";
-    hint.innerHTML="Abre el correo con <b>Para / Asunto / Cuerpo</b> cargados. Después, en Outlook: poné <b>De: relaciones.laborales</b>, <b>adjuntá</b> lo que dice el cuerpo (“Se adjunta…”) y enviá.";
+    hint.innerHTML="Abre el correo con <b>Para/Asunto</b> y te copia el cuerpo con <b>negritas</b>: pegalo con <b>Ctrl+V</b>. Después: <b>De: relaciones.laborales</b>, adjuntá lo que dice “Se adjunta…” y enviá.";
     wrap.appendChild(hint);
   }
   return wrap;
 }
-// Abre el Outlook web con el correo precargado (remitente y adjuntos se ponen a mano)
-function abrirOWA(n){
+// Abre el Outlook web con Para/Asunto cargados y COPIA el cuerpo con negritas
+// (el deeplink no soporta formato, por eso el cuerpo viaja por el portapapeles).
+async function abrirOWA(n){
+  const ok=await copiarRich(n.cuerpo||"");
   const to=encodeURIComponent((n.destinatarios||[]).join(";"));
   const subject=encodeURIComponent(n.asunto||"");
-  const body=encodeURIComponent((n.cuerpo||"").replace(/\*\*(.+?)\*\*/g,"$1"));  // sin marcas ** de negrita
-  window.open("https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject+"&body="+body, "_blank", "noopener");
+  window.open("https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject, "_blank", "noopener");
+  toast(ok ? "Cuerpo copiado con negritas — pegalo con Ctrl+V en el mail" : "Mail abierto; copiá el cuerpo con su botón 📋", ok?"ok":"err");
+}
+
+/* ---------- Historial (se guarda en este navegador) ---------- */
+function getHist(){ try{ return JSON.parse(localStorage.getItem("dgrdt_history")||"[]"); }catch(e){ return []; } }
+function setHist(h){ try{ localStorage.setItem("dgrdt_history", JSON.stringify(h.slice(0,30))); }catch(e){} renderHist(); }
+function pushHist(out){ if(!out) return; const h=getHist(); h.unshift({date:new Date().toISOString(), out}); setHist(h); }
+function updateHistLast(out){ if(!out) return; const h=getHist(); if(h.length) h[0]={date:h[0].date, out}; else h.unshift({date:new Date().toISOString(), out}); setHist(h); }
+function renderHist(){
+  const box=$("histList"); if(!box) return;
+  const h=getHist(); box.innerHTML="";
+  if(!h.length){ box.innerHTML='<div class="muted" style="padding:6px 2px">Todavía no hay notificaciones guardadas.</div>'; return; }
+  h.forEach(e=>{
+    const d=new Date(e.date);
+    const f=isNaN(d)?"":(d.getDate()+"/"+(d.getMonth()+1)+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"));
+    const o=e.out||{};
+    const it=document.createElement("div"); it.className="histItem";
+    it.innerHTML='<div class="hi1">'+escapeHtml(f+"  ·  "+(o.expediente||"(sin EX)"))+'</div>'+
+                 '<div class="hi2">'+escapeHtml([o.sigla||o.sindicato,o.empresa].filter(Boolean).join(" - ")||"—")+'</div>';
+    it.onclick=()=>{ CONV=[]; SCROLL_NEXT=false; render(o); toast("Restaurada del historial (para corregir por chat hay que regenerarla)","ok"); };
+    box.appendChild(it);
+  });
 }
 
 /* ---------- Copiar ---------- */
@@ -739,8 +834,14 @@ $("btnSaveKey").onclick=()=>{
 
 /* ---------- Arranque ---------- */
 (function init(){
+  // upgrade automático (una sola vez) del modelo viejo por defecto al 2.5
+  if(localStorage.getItem("dgrdt_gemini_model")==="gemini-2.0-flash" && !localStorage.getItem("dgrdt_m25")){
+    localStorage.setItem("dgrdt_gemini_model","gemini-2.5-flash"); localStorage.setItem("dgrdt_m25","1");
+  }
   $("cfgKey").value=getKey();
   $("cfgModel").value=getModel();
+  renderHist();
+  $("btnClearHist").onclick=()=>{ if(confirm("¿Vaciar el historial?")) setHist([]); };
   if(!getKey()){ $("cfgDetails").open=true; }   // si no hay clave, mostrar config
 })();
 </script>
