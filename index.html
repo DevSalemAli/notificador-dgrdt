@@ -260,7 +260,7 @@ IMPORTANTE:
 - Respetá EXACTAMENTE el espaciado de las plantillas: línea en blanco después de "Señores ...:", línea en blanco antes de "Se adjunta...", los varios "Se adjunta" van pegados entre sí (sin línea en blanco), y línea en blanco antes de "Quedan ustedes debidamente notificados.".
 - Encabezado CON presentación: "Señores SINDICATO (SIGLA) y EMPRESA:". SIN presentación con varias partes: "Señores SINDICATO (SIGLA) - EMPRESA1 - EMPRESA2 y EMPRESA3:" (se separan con " - " y la última con " y ").
 
-HAY 10 ESCENARIOS. Elegí EXACTAMENTE uno (campo "escenario" con la clave entre paréntesis) y completá las plantillas con los datos reales:
+HAY 11 ESCENARIOS. Elegí EXACTAMENTE uno (campo "escenario" con la clave entre paréntesis) y completá las plantillas con los datos reales:
 
 1) audiencia_presencial — PV que dice "atento a la presentación efectuada por..." y es presencial (Bartolomé Mitre 575).
 ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA [PV].
@@ -404,6 +404,19 @@ Quedan ustedes debidamente notificados.
 
 TEXTO INTERNO de este escenario: usá el ítem 7 del catálogo si la nueva audiencia es virtual, o el ítem 6 si es presencial.
 
+11) cierre_empresa_ausente — Acta de audiencia (presencial o virtual) donde la parte EMPRESARIAL NO comparece y se ordena el CIERRE de las actuaciones (sin fijar nueva fecha). El acta se envía a firmar SOLO a la parte SINDICAL (que sí compareció): destinatarios = SOLO los emails del sindicato, encabezado y cierre en SINGULAR.
+ASUNTO: [EX]. [SIGLA] - [EMPRESA]. NOTIFICA ACTA DE AUD. DEL [DD/M/AAAA del acta]
+CUERPO:
+Señor [NOMBRE SINDICATO] ([SIGLA]):
+
+En virtud de la audiencia llevada a cabo en el día de la fecha, se remite el acta labrada en ese acto a los fines de su firma. Una vez suscripta por sus representantes, nos la deben enviar escaneada por este medio en el plazo de 48 horas bajo apercibimiento de tenerlos por no presentados.
+
+Se adjunta ACTA DE AUDIENCIA DEL [DD/M/AAAA] PARA FIRMAR - [IF].
+
+Queda usted debidamente notificado.
+
+TEXTO INTERNO de este escenario: usá el ítem 10b del catálogo.
+
 === ESCENARIO ESPECIAL: EMPRESA SIN EMAIL → NOTIFICACIÓN POR TAD ===
 APLICA cuando: (a) es una PV de APERTURA de audiencia (presencial o virtual) con presentación (RE/IF), y (b) NO hay email atribuible a la EMPRESA.
 Para saber el email de la empresa: buscalo en el bloque de datos de la empresa requerida (en presentaciones FAECYS suele estar bajo "-II- DATOS DE LA EMPRESA REQUERIDA", o el renglón "correo electrónico" de la empresa). El email del SINDICATO casi siempre está; el de la EMPRESA es el que puede faltar. NO tomes como email de la empresa un correo que aparezca en el relato/denuncia (puede ser de un tercero); solo el del bloque de datos de la empresa.
@@ -472,6 +485,8 @@ REGLAS DE FORMATO:
 **[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. RESERVA POR 10 DIAS. SE GENERÓ ACTA. VINCULADO.
 10) ACTA: guarda/reserva con EMPRESA AUSENTE:
 **[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. RESERVA. SE GENERÓ ACTA. VINCULADO.
+10b) ACTA: CIERRE con EMPRESA AUSENTE (acta a firmar solo al sindicato):
+**[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. CIERRE. SE GENERÓ ACTA. NOTIFICADO. VINCULADO.
 11) ACTA: ACUERDO entre las partes:
 **[EX] [SIGLA] - [EMPRESA]**. SE TOMÓ AUD. ACUERDO. SE GENERÓ ACTA. VINCULADO. PENDIENTE ACTO ADMINISTRATIVO.
 12) ACTA firma ológrafa con ambas partes y nueva fecha: usá el mismo texto del ítem 6.
@@ -521,6 +536,7 @@ const ESC_LABEL = {
   reserva:"Reserva / acta para firma",
   nueva_audiencia_acta:"Nueva audiencia desde acta",
   acta_firma_nueva_fecha:"Acta para firma + nueva audiencia",
+  cierre_empresa_ausente:"Cierre (empresa ausente) — acta al sindicato",
   resolucion:"Resolución / acto administrativo"
 };
 
