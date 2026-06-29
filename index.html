@@ -254,7 +254,7 @@ IMPORTANTE:
 - NO inventes datos. Si falta un dato (email, número, fecha), dejá una marca «FALTA: descripción» y explicá en "notas".
 - Extraé TODOS los emails que aparezcan, en minúscula y sin repetir.
 - DESTINATARIOS: notificá a la/s parte/s que corresponda. INCOMPARECENCIA: si en un acta una parte compareció y la otra NO, la notificación va SOLO a la parte AUSENTE (encabezado "Señores ...:" con esa parte y destinatarios solo con sus emails). Aclará en "notas" quién no compareció.
-- CANAL Email vs TAD: a cada parte se la notifica por EMAIL si hay un email para ella (en el documento o en CONTACTOS CONOCIDOS). Si NO hay email, se la notifica por TAD (Trámite a Distancia): NO inventes email, poné via="TAD", destinatarios=[] y en "para" la razón social de esa parte. Aclará en "notas" qué parte va por TAD.
+- CANAL Email vs TAD (REGLA CRÍTICA): el SINDICATO SIEMPRE se notifica por EMAIL (via="Email"), NUNCA por TAD. Si no encontrás el email del sindicato, IGUAL va por Email: poné en sus destinatarios «FALTA: email del sindicato» y aclaralo en "notas". JAMÁS generes una notificación via="TAD" para el sindicato. El TAD (via="TAD") es EXCLUSIVO de la EMPRESA, y SOLO cuando la empresa no tiene email: ahí poné destinatarios=[] y en "para" la razón social de la empresa. Si la empresa SÍ tiene email, va por Email como todos. Aclará en "notas" si la empresa va por TAD.
 - SEPARACIÓN EN 2 NOTIFICACIONES: si por el canal (una por Email y otra por TAD) o por quién presentó las partes necesitan textos distintos, devolvé UNA notificación POR PARTE en "notificaciones": la parte que HIZO la presentación (RE/IF) usa el formato CON presentación; la parte que NO presentó usa el formato SIN presentación. Ejemplo: la empresa presentó pero NO tiene email y el sindicato sí → (1) al SINDICATO por Email, formato SIN presentación; (2) a la EMPRESA por TAD, formato CON presentación.
 - Si todas las partes tienen email y corresponde una sola notificación combinada, devolvé un único elemento en "notificaciones" (via="Email").
 - Respetá EXACTAMENTE el espaciado de las plantillas: línea en blanco después de "Señores ...:", línea en blanco antes de "Se adjunta...", los varios "Se adjunta" van pegados entre sí (sin línea en blanco), y línea en blanco antes de "Quedan ustedes debidamente notificados.".
@@ -817,16 +817,23 @@ function copiarRichSync(text){
 // negritas: en el mail, Ctrl+A dentro del cuerpo y Ctrl+V lo reemplaza formateado.
 // window.open va en el mismo clic, sin esperas (si no, el navegador lo bloquea).
 function abrirOWA(n){
+  const cuerpoPlano=(n.cuerpo||"").replace(/\*\*(.+?)\*\*/g,"$1");
   const hayBold=/\*\*/.test(n.cuerpo||"");
+  // copiar el cuerpo (con negritas) SIN await, para no perder el clic que abre la ventana
   const okSync=copiarRichSync(n.cuerpo||"");
-  if(!okSync) copiarRich(n.cuerpo||"");   // plan B asincrónico, iniciado con el documento aún en foco
-  const to=encodeURIComponent((n.destinatarios||[]).join(";"));
+  if(!okSync) copiarRich(n.cuerpo||"");
+  const to=encodeURIComponent((n.destinatarios||[]).filter(e=>/@/.test(e)).join(";"));
   const subject=encodeURIComponent(n.asunto||"");
-  const body=encodeURIComponent((n.cuerpo||"").replace(/\*\*(.+?)\*\*/g,"$1"));
-  const win=window.open("https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject+"&body="+body, "_blank", "noopener");
-  toast(hayBold ? "Mail abierto con todo cargado ✓ — para las negritas: clic en el cuerpo, Ctrl+A y Ctrl+V"
-                : "Mail abierto con todo cargado ✓","ok");
-  if(!win) toast("El navegador bloqueó la ventana — permití los pop-ups de este sitio","err");
+  // base con Para+Asunto (corta y confiable); el cuerpo solo se agrega si la URL queda corta
+  let url="https://outlook.office.com/mail/deeplink/compose?to="+to+"&subject="+subject;
+  const bodyEnc=encodeURIComponent(cuerpoPlano);
+  const cuerpoEnLink = (url.length + 6 + bodyEnc.length) < 1900;
+  if(cuerpoEnLink) url += "&body=" + bodyEnc;
+  const win=window.open(url, "_blank");
+  if(!win){ toast("El navegador bloqueó la pestaña — permití los pop-ups de este sitio y reintentá","err"); return; }
+  if(cuerpoEnLink && !hayBold) toast("Outlook abierto con todo cargado ✓","ok");
+  else if(cuerpoEnLink && hayBold) toast("Outlook abierto ✓ — para las negritas: clic en el cuerpo, Ctrl+A y Ctrl+V","ok");
+  else toast("Outlook abierto (Para/Asunto). El cuerpo está copiado: pegalo en el mensaje con Ctrl+V","ok");
 }
 
 /* ---------- Historial (se guarda en este navegador) ---------- */
