@@ -1141,9 +1141,17 @@ function renderConectar(box){
     const ok=await conectarAgente(90000);
     if(ok){ toast("Conectado con el agente ✓","ok"); renderAuto(); return; }
     b.disabled=false; b.textContent="🔌 Reintentar";
+    // ¿el navegador tiene bloqueado el acceso de esta página a las apps del equipo?
+    let bloqueado=false;
+    for(const n of ["loopback-network","local-network-access","local-network"]){
+      try{ if((await navigator.permissions.query({name:n})).state==="denied"){ bloqueado=true; break; } }catch(e){}
+    }
+    const directo=` O usá directamente <a href="${AGENTE_URL}/" target="_blank" rel="noopener">el notificador de esta PC</a> (ahí hay que volver a subir los PDF).`;
     m.innerHTML = location.protocol==="file:"
       ? "Esta copia local no puede usar el agente: abrí la web desde <b>notificador-dgrdt.vercel.app</b> o desde el acceso directo «Notificador DGRDT»."
-      : "No encontré el agente. Abrí <b>«Notificador DGRDT»</b> desde el escritorio, esperá unos segundos y volvé a tocar el botón. Si el navegador mostró un aviso de permiso y lo bloqueaste, permitilo desde el ícono a la izquierda de la dirección.";
+      : bloqueado
+      ? "El navegador tiene <b>bloqueado</b> que esta página use el agente de la PC. Tocá el ícono a la izquierda de la dirección → <b>Configuración del sitio</b> → permití el acceso a <b>apps y servicios de este dispositivo</b> (o «red local») y recargá la página."+directo
+      : "No encontré el agente. Abrí <b>«Notificador DGRDT»</b> desde el escritorio, esperá unos segundos y volvé a tocar el botón."+directo;
   };
 }
 
