@@ -10,6 +10,10 @@
 >    Realizar Pase (motivo estándar, Tramitación, repartición y sector configurables: por defecto DGRDT / COLECTIVA).
 > 5. **Agenda**: fila en la planilla de audiencias (Google Sheets) y renglón en el Word de seguimiento (bajo el día de hoy).
 >
+> **También desde la web publicada** (notificador-dgrdt.vercel.app): con el agente abierto en la PC, después de generar
+> aparece **🔌 Conectar con el agente de esta PC**. La primera vez el navegador pide permiso para acceder a apps del equipo
+> (tocá «Permitir»); después se conecta solo. El agente le da acceso únicamente a esa web oficial.
+>
 > Los links de la planilla y del Word, la firma y el correo de prueba se cargan en **⚙️ Ajustes del agente**: quedan solo en
 > la PC (`C:\Users\<usuario>\NotificadorDGRDT\config.json`), nunca en este repositorio.
 >

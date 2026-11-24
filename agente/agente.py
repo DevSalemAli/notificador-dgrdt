@@ -29,7 +29,7 @@ import trabajos    # noqa: E402
 from rutas import BASE, CASOS  # noqa: E402
 
 PUERTO = 8765
-VERSION = "1.0"
+VERSION = "1.1"
 
 
 def _token_persistente():
@@ -51,6 +51,10 @@ def _token_persistente():
 TOKEN = _token_persistente()
 INDEX = os.path.join(os.path.dirname(AQUI), "index.html")
 HOSTS_OK = {f"127.0.0.1:{PUERTO}", f"localhost:{PUERTO}"}
+# Páginas web que pueden usar este agente desde el navegador (además de la que sirve él mismo).
+# El navegador manda el encabezado Origin y una página no lo puede falsificar.
+ORIGENES_WEB = {"https://notificador-dgrdt.vercel.app"} | {
+    o.strip().rstrip("/") for o in os.environ.get("NOTIFICADOR_ORIGENES", "").split(",") if o.strip()}
 
 
 def _dentro_de_casos(ruta):
@@ -88,12 +92,25 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     # ---------- helpers ----------
+    def _origen(self):
+        """Origin de la página que llama, si es una de las permitidas (si no, "")."""
+        o = (self.headers.get("Origin") or "").rstrip("/")
+        return o if o in ORIGENES_WEB else ""
+
+    def _cors(self):
+        o = self._origen()
+        if o:
+            self.send_header("Access-Control-Allow-Origin", o)
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+            self.send_header("Vary", "Origin")
+
     def _json(self, obj, code=200):
         data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        self._cors()
         self.end_headers()
         self.wfile.write(data)
 
@@ -112,12 +129,33 @@ class Handler(BaseHTTPRequestHandler):
             return {}
         return json.loads(self.rfile.read(n).decode("utf-8"))
 
+    # ---------- OPTIONS (consulta previa del navegador para la web publicada) ----------
+    def do_OPTIONS(self):
+        if not self._host_ok() or not self._origen():
+            self.send_response(403)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send_response(204)
+        self._cors()
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Agente-Token")
+        self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     # ---------- GET ----------
     def do_GET(self):
         if not self._host_ok():
             return self._json({"error": "host no permitido"}, 403)
         url = urllib.parse.urlparse(self.path)
         ruta = url.path
+
+        if ruta == "/api/emparejar":
+            # la web publicada pide el token: solo se lo damos a las páginas permitidas
+            if not self._origen():
+                return self._json({"error": "origen no permitido"}, 403)
+            return self._json({"ok": True, "token": TOKEN, "version": VERSION})
 
         if ruta in ("/", "/index.html"):
             with open(INDEX, "r", encoding="utf-8") as f:
@@ -159,6 +197,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Content-Disposition", "inline; filename*=UTF-8''" + urllib.parse.quote(os.path.basename(p)))
+            self._cors()
             self.end_headers()
             self.wfile.write(data)
             return
@@ -195,7 +234,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"ok": True})
             return self._json({"error": "ruta no permitida"}, 403)
         if ruta == "/api/navegador":
-            navegador.abrir_chrome([navegador.URL_OUTLOOK, navegador.URL_GEDO])
+            # abre la ventana del notificador y las pestañas que falten (Outlook / GEDO)
+            if not navegador.chrome_activo():
+                navegador.abrir_chrome([navegador.URL_OUTLOOK, navegador.URL_GEDO])
+            else:
+                ses = estado_sesiones()
+                if not ses["outlook"]:
+                    navegador.abrir_url(navegador.URL_OUTLOOK)
+                if not ses["gedo"]:
+                    navegador.abrir_url(navegador.URL_GEDO)
             return self._json({"ok": True})
         return self._json({"error": "no encontrado"}, 404)
 

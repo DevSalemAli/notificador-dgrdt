@@ -963,8 +963,9 @@ function render(out){
   { const es=$("emptyState"); if(es) es.style.display="none"; const sh=$("sideHint"); if(sh) sh.style.display="none"; const sp=$("sidePanel"); if(sp) sp.style.display=""; }
   $("cardOut").style.display="block";
   if(SCROLL_NEXT){ $("cardOut").scrollIntoView({behavior:"smooth", block:"start"}); SCROLL_NEXT=false; }
-  UI.notifs.forEach(u=>{ if(!u.esTAD) derivarAdjuntos(u); });
-  revalidar();
+  // los controles no pueden impedir que aparezca el panel automático
+  try{ UI.notifs.forEach(u=>{ if(!u.esTAD) derivarAdjuntos(u); }); }catch(e){ console.error("adjuntos", e); }
+  try{ revalidar(); }catch(e){ console.error("controles", e); }
   renderAuto();
 }
 
@@ -1089,16 +1090,62 @@ function abrirOWA(n){
    AUTOMATIZACIÓN — solo aparece cuando la web la abre el "Agente Notificador"
    (programa local que maneja Outlook web, GEDO y la agenda en esta PC).
    ========================================================================== */
-const AGENTE = (()=>{ const m=document.querySelector('meta[name="agente-token"]'); return { on:!!m, token:m?m.content:"" }; })();
+// Abierta por el agente: trae el token en un <meta>. Abierta desde la web publicada: se conecta al
+// agente de esta PC (http://127.0.0.1:8765), que solo le da el token a la página oficial.
+const AGENTE_URL = "http://127.0.0.1:8765";
+const AGENTE = (()=>{ const m=document.querySelector('meta[name="agente-token"]'); return { on:!!m, token:m?m.content:"", base:"" }; })();
 const AUTO = { corriendo:false, cfg:null, ses:{}, tid:null };
+let AGENTE_INI = false;
 async function api(path, opts){
   opts=opts||{};
-  const r=await fetch(path,{ method:opts.method||"GET", body:opts.body, headers:{"Content-Type":"application/json","X-Agente-Token":AGENTE.token} });
+  const r=await fetch(AGENTE.base+path,{ method:opts.method||"GET", body:opts.body, cache:"no-store", headers:{"Content-Type":"application/json","X-Agente-Token":AGENTE.token} });
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.error||("HTTP "+r.status));
   return j;
 }
-const urlArchivo = p => "/api/archivo?k="+encodeURIComponent(AGENTE.token)+"&ruta="+encodeURIComponent(p);
+const urlArchivo = p => AGENTE.base+"/api/archivo?k="+encodeURIComponent(AGENTE.token)+"&ruta="+encodeURIComponent(p);
+
+function iniciarAgente(){
+  if(AGENTE_INI) return; AGENTE_INI=true;
+  refrescarEstado();
+  setInterval(()=>{ if(!document.hidden) refrescarEstado(); }, 6000);
+  const sub=document.querySelector("header.top .sub");
+  if(sub) sub.textContent="Subí la PV y el RE → la IA arma la notificación → el agente la envía, la sube a GEDO y la agenda.";
+}
+// Busca el agente de esta PC desde la web publicada. espera = ms máximos (el navegador puede pedir permiso).
+async function conectarAgente(espera){
+  if(AGENTE.on) return true;
+  if(location.protocol==="file:") return false;
+  const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(), espera||4000);
+  try{
+    const r=await fetch(AGENTE_URL+"/api/emparejar",{ signal:ctl.signal, cache:"no-store" });
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok || !j.token) return false;
+    AGENTE.on=true; AGENTE.token=j.token; AGENTE.base=AGENTE_URL;
+    try{ localStorage.setItem("dgrdt_agente_ok","1"); }catch(e){}
+    iniciarAgente();
+    return true;
+  }catch(e){ return false; }
+  finally{ clearTimeout(to); }
+}
+function renderConectar(box){
+  box.innerHTML=`
+    <h3>🤖 Notificar automáticamente</h3>
+    <p class="muted" style="margin:0 0 9px;font-size:12.5px">Lo hace el agente <b>«Notificador DGRDT»</b> de esta PC: envía el mail desde Outlook web, firma en GEDO, vincula y hace el pase, y agenda.</p>
+    <button class="btn go" id="btnConectar">🔌 Conectar con el agente de esta PC</button>
+    <div class="muted" id="conMsg" style="margin-top:7px;font-size:12px"></div>`;
+  $("btnConectar").onclick=async()=>{
+    const b=$("btnConectar"), m=$("conMsg");
+    b.disabled=true; b.textContent="⏳ Buscando el agente…";
+    m.textContent="Si el navegador pregunta si esta página puede acceder a otras apps o dispositivos de este equipo, tocá «Permitir».";
+    const ok=await conectarAgente(90000);
+    if(ok){ toast("Conectado con el agente ✓","ok"); renderAuto(); return; }
+    b.disabled=false; b.textContent="🔌 Reintentar";
+    m.innerHTML = location.protocol==="file:"
+      ? "Esta copia local no puede usar el agente: abrí la web desde <b>notificador-dgrdt.vercel.app</b> o desde el acceso directo «Notificador DGRDT»."
+      : "No encontré el agente. Abrí <b>«Notificador DGRDT»</b> desde el escritorio, esperá unos segundos y volvé a tocar el botón. Si el navegador mostró un aviso de permiso y lo bloqueaste, permitilo desde el ícono a la izquierda de la dirección.";
+  };
+}
 
 async function refrescarEstado(){
   if(!AGENTE.on) return;
@@ -1130,8 +1177,9 @@ function pintarSesiones(){
 
 function renderAuto(){
   const box=$("autoBox"); if(!box) return;
-  if(!AGENTE.on || !LAST_OUT){ box.style.display="none"; return; }
+  if(!LAST_OUT){ box.style.display="none"; return; }
   box.style.display="";
+  if(!AGENTE.on){ renderConectar(box); return; }
   if(AUTO.corriendo) return;  // no pisar el progreso de un envío en curso
   const hayMail=UI.notifs.some(u=>!u.esTAD);
   box.innerHTML=`
@@ -1179,8 +1227,13 @@ async function armarTrabajo(){
 async function lanzarAuto(){
   const v=revalidar()||[];
   if(v.some(x=>x.nivel==="error")){ toast("Corregí lo marcado en rojo antes de enviar","err"); return; }
-  if(!AUTO.ses.outlook && $("pMail").checked){ toast("Primero iniciá sesión en Outlook (clic en el aviso amarillo)","err"); return; }
-  if(!AUTO.ses.gedo && $("pGedo").checked && !$("pGedo").disabled){ toast("Primero iniciá sesión en GEDO (clic en el aviso amarillo)","err"); return; }
+  const faltaOutlook = !AUTO.ses.outlook && $("pMail").checked;
+  const faltaGedo = !AUTO.ses.gedo && $("pGedo").checked && !$("pGedo").disabled;
+  if(faltaOutlook || faltaGedo){
+    api("/api/navegador",{method:"POST",body:"{}"}).catch(()=>{});
+    toast("Abrí la ventana del notificador: iniciá sesión en "+[faltaOutlook&&"Outlook",faltaGedo&&"GEDO"].filter(Boolean).join(" y ")+". Cuando el aviso quede en verde, tocá 🚀 de nuevo.","err");
+    return;
+  }
   const cfg=AUTO.cfg||{};
   const mails=UI.notifs.filter(u=>!u.esTAD);
   const resumen=mails.map(u=>"• Para: "+(cfg.modo_prueba?(cfg.correo_prueba+"  (PRUEBA, en vez de: "+parseEmails(u.dest.value).join(", ")+")"):parseEmails(u.dest.value).join(", "))+
@@ -1271,10 +1324,11 @@ function pintarCfgAgente(){
     }catch(e){ toast(e.message,"err"); }
   };
 }
-if(AGENTE.on){
-  refrescarEstado();
-  setInterval(()=>{ if(!document.hidden) refrescarEstado(); }, 6000);
-  document.querySelector("header.top .sub").textContent="Subí la PV y el RE → la IA arma la notificación → el agente la envía, la sube a GEDO y la agenda.";
+if(AGENTE.on) iniciarAgente();
+else {
+  // si en este navegador ya se conectó alguna vez (permiso dado), se reconecta solo y en silencio
+  let antes=false; try{ antes=localStorage.getItem("dgrdt_agente_ok")==="1"; }catch(e){}
+  if(antes) conectarAgente(4000).then(ok=>{ if(ok) renderAuto(); });
 }
 
 /* ---------- Historial (se guarda en este navegador) ---------- */
