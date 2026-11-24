@@ -34,6 +34,31 @@ def ejecutable_chrome():
     raise RuntimeError("No encontré Google Chrome ni Microsoft Edge instalados.")
 
 
+def pausa(page, segundos):
+    """Espera dejando que Playwright procese lo que pasa en el navegador.
+
+    OJO: con time.sleep, Playwright no se entera de nada: page.url y la lista de pestañas
+    quedan congeladas (por eso el agente no veía que ya habías iniciado sesión en SADE)."""
+    try:
+        if page is not None and not page.is_closed():
+            page.wait_for_timeout(int(segundos * 1000))
+            return
+    except Exception:
+        pass
+    time.sleep(segundos)
+
+
+def avisar_espera(t, msg):
+    """Marca el paso como «esperando al usuario» (✋ en la web); si no se puede, solo lo anota."""
+    (getattr(t, "esperando", None) or t.anotar)(msg)
+
+
+def fin_espera(t):
+    f = getattr(t, "seguir", None)
+    if f:
+        f()
+
+
 def chrome_activo():
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{PUERTO_CDP}/json/version", timeout=1.5) as r:

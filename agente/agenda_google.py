@@ -87,16 +87,20 @@ def _pagina(ctx, url_parcial, url, t):
 
 
 def _esperar_google(page, t, timeout_s=900):
+    import navegador
     avisado = False
     fin = time.time() + timeout_s
     while time.time() < fin:
         u = page.url or ""
         if "docs.google.com" in u and "accounts.google" not in u:
+            if avisado:
+                navegador.fin_espera(t)
+                t.anotar("Google: sesión iniciada, sigo.")
             return
-        if not avisado:
-            t.anotar("✋ Google pide iniciar sesión: hacelo en la ventana del notificador (espero).")
+        if not avisado and "accounts.google" in u:
+            navegador.avisar_espera(t, "✋ Google pide iniciar sesión: hacelo en la ventana del notificador (espero).")
             avisado = True
-        time.sleep(1.5)
+        navegador.pausa(page, 1.5)   # no time.sleep: así page.url se actualiza
     raise RuntimeError("Google no inició sesión a tiempo.")
 
 

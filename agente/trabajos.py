@@ -48,6 +48,9 @@ class Trabajo:
         self.resultado = {}
         self.error = ""
         self.cancelar = False
+        self.pregunta = None            # lo que el agente le pregunta al usuario (se ve en la web)
+        self.respuesta = None
+        self._evento = threading.Event()
         caso = datos.get("caso") or {}
         nombre = "{} {} {} - {}".format(
             self.creado.strftime("%Y-%m-%d %H%M"),
@@ -82,6 +85,55 @@ class Trabajo:
         except Exception:
             pass
 
+    def esperando(self, msg):
+        """El paso en curso espera algo del usuario (ej. iniciar sesión): se ve con ✋ en la web."""
+        self.anotar(msg)
+        with _LOCK:
+            for p in self.pasos:
+                if p["estado"] == "corriendo":
+                    p["estado"] = "esperando"
+                    p["detalle"] = msg.replace("✋", "").strip()
+
+    def seguir(self):
+        with _LOCK:
+            for p in self.pasos:
+                if p["estado"] == "esperando":
+                    p["estado"] = "corriendo"
+                    p["detalle"] = ""
+
+    def preguntar(self, p, texto, campo=None, valor="", botones=None, timeout_s=3600):
+        """Frena el paso y le pregunta algo al usuario en la web. Devuelve su respuesta (dict con
+        'accion' y, si hay campo, su valor). Mientras espera, el paso se ve con ✋."""
+        with _LOCK:
+            self.respuesta = None
+            self._evento.clear()
+            self.pregunta = {"paso": p["clave"], "texto": texto, "campo": campo, "valor": valor,
+                             "botones": botones or [{"accion": "seguir", "texto": "Seguir"}]}
+            p["estado"] = "esperando"
+            p["detalle"] = texto
+        self.anotar("✋ " + texto)
+        fin = time.time() + timeout_s
+        while not self._evento.wait(1):
+            if self.cancelar or time.time() > fin:
+                break
+        with _LOCK:
+            r = dict(self.respuesta or {})
+            self.pregunta = None
+            p["estado"] = "corriendo"
+            p["detalle"] = ""
+        self.revisar_cancelacion()
+        if not r:
+            raise RuntimeError("Nadie respondió la pregunta a tiempo.")
+        return r
+
+    def responder(self, datos):
+        with _LOCK:
+            if not self.pregunta:
+                return False
+            self.respuesta = dict(datos or {})
+        self._evento.set()
+        return True
+
     def revisar_cancelacion(self):
         if self.cancelar:
             raise Cancelado("Cancelado por el usuario")
@@ -97,6 +149,7 @@ class Trabajo:
                 "error": self.error,
                 "carpeta": self.carpeta,
                 "creado": self.creado.isoformat(timespec="seconds"),
+                "pregunta": json.loads(json.dumps(self.pregunta)) if self.pregunta else None,
             }
 
 
@@ -151,6 +204,50 @@ def _resolver_adjuntos(notif, rutas):
     return out
 
 
+def _pedir_expediente(t, p, caso, motivo):
+    """Le pide al usuario el número de EX correcto. Devuelve el número normalizado,
+    o None si elige seguir sin SADE (vincular y pase a mano)."""
+    import expediente
+    viejo = caso.get("expediente") or ""
+    try:
+        rep = expediente.partes(viejo)[3]
+    except Exception:
+        rep = "DGRDT"
+    texto = motivo
+    while True:
+        r = t.preguntar(p, texto, campo="expediente", valor=viejo, botones=[
+            {"accion": "seguir", "texto": "Seguir con este número"},
+            {"accion": "saltear", "texto": "Seguir sin SADE (lo hago a mano)"}])
+        if r.get("accion") == "saltear":
+            return None
+        try:
+            return expediente.normalizar(r.get("expediente"), rep)
+        except ValueError as e:
+            texto = f"{e} Escribilo de nuevo:"
+
+
+def _cambiar_expediente(t, caso, mails, nuevo):
+    """Reemplaza el EX equivocado por el correcto en el caso (agenda, SADE) y en los mails que faltan enviar."""
+    import expediente
+    viejo = caso.get("expediente") or ""
+    rx = None
+    try:
+        rx = expediente.patron(viejo)
+    except Exception:
+        pass
+    caso["expediente"] = nuevo
+    if rx:
+        for k in ("texto_interno", "ref_gedo"):
+            if caso.get(k):
+                caso[k] = rx.sub(nuevo, caso[k])
+        for n in mails:
+            for k in ("asunto", "cuerpo"):
+                if n.get(k):
+                    n[k] = rx.sub(nuevo, n[k])
+    t.resultado["expediente_corregido"] = {"antes": viejo, "ahora": nuevo}
+    t.anotar(f"Expediente corregido a mano: {viejo} → {nuevo}")
+
+
 def _ejecutar(t, pw_estado):
     """Corre todos los pasos de un trabajo. pw_estado = dict con la conexión de Playwright."""
     import outlook
@@ -172,6 +269,11 @@ def _ejecutar(t, pw_estado):
     # armar la lista de pasos (para que la web los muestre desde el principio)
     p_arch = t.paso("archivos", "Preparar carpeta del caso")
     plan = []
+    # Antes de enviar nada: ¿el EX existe en SADE? Si el acta lo trae mal, se corrige acá
+    # (en el mail, la agenda y SADE) y la notificación sigue sola.
+    hace_ee = bool(mails) and pasos_ok.get("gedo", True) and pasos_ok.get("vincular", cfg.get("vincular", True))
+    if caso.get("expediente") and not prueba and pasos_ok.get("verificar_ex", hace_ee):
+        plan.append(("verificar_ex", 0, t.paso("verificar_ex", "Verificar el expediente en SADE")))
     for i, n in enumerate(mails):
         sufijo = f" ({n.get('para')})" if len(mails) > 1 and n.get("para") else ""
         if pasos_ok.get("mail", True):
@@ -203,12 +305,29 @@ def _ejecutar(t, pw_estado):
 
     estado_mail = {}   # i -> dict(enviado, pdf, gedo_numero, gedo_pdf)
     finales = []       # PDFs finales para imprimir
+    sin_sade = False   # el usuario eligió seguir sin SADE (vincular y pase a mano)
 
     for tipo, i, p in plan:
         t.revisar_cancelacion()
         t.set_paso(p, "corriendo")
         try:
-            if tipo == "mail":
+            if tipo == "verificar_ex":
+                import expediente
+                while True:
+                    page = pw_estado["pagina"]("expediente")
+                    try:
+                        expediente.verificar(page, caso["expediente"], t)
+                        t.set_paso(p, "ok", f"{caso['expediente']} existe en SADE")
+                        break
+                    except expediente.NoExiste:
+                        nuevo = _pedir_expediente(t, p, caso, f"{caso['expediente']} no existe en SADE "
+                                                  "(¿está mal escrito en el acta?). Escribí el número correcto:")
+                        if not nuevo:
+                            sin_sade = True
+                            t.set_paso(p, "omitido", "Seguís sin SADE: la vinculación y el pase quedan para hacer a mano.")
+                            break
+                        _cambiar_expediente(t, caso, mails, nuevo)
+            elif tipo == "mail":
                 n = mails[i]
                 adj = _resolver_adjuntos(n, rutas)
                 faltan = [a for a in (n.get("adjuntos") or []) if not any(os.path.basename(x).lower() == limpiar_nombre(a, 150).lower() for x in adj)]
@@ -254,11 +373,27 @@ def _ejecutar(t, pw_estado):
                 if not notifs_gedo:
                     t.set_paso(p, "omitido", "No hay notificación firmada en GEDO para vincular")
                     continue
+                if sin_sade:
+                    t.set_paso(p, "omitido", "A mano (elegiste seguir sin SADE): vincular " + ", ".join(numeros))
+                    continue
                 if not caso.get("expediente"):
                     raise RuntimeError("Falta el número de expediente para vincular.")
                 import expediente
-                page = pw_estado["pagina"]("expediente")
-                hechos = expediente.vincular_y_pase(page, caso["expediente"], numeros, cfg, t)
+                hechos = None
+                while True:
+                    page = pw_estado["pagina"]("expediente")
+                    try:
+                        hechos = expediente.vincular_y_pase(page, caso["expediente"], numeros, cfg, t)
+                        break
+                    except expediente.NoExiste:
+                        nuevo = _pedir_expediente(t, p, caso, f"{caso['expediente']} no existe en SADE. "
+                                                  "Escribí el número correcto para vincular y hacer el pase:")
+                        if not nuevo:
+                            break
+                        _cambiar_expediente(t, caso, [], nuevo)
+                if hechos is None:
+                    t.set_paso(p, "omitido", "A mano: vincular " + ", ".join(numeros))
+                    continue
                 t.resultado["vinculados"] = hechos
                 t.set_paso(p, "ok", "Vinculados: " + ", ".join(hechos) +
                            f" · pase a {cfg.get('pase_reparticion')} / {cfg.get('pase_sector')}")

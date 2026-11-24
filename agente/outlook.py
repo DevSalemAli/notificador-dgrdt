@@ -68,16 +68,20 @@ def cuerpo_plano(texto):
 
 def _esperar_sesion(page, t, timeout_s=900):
     """Si Outlook pide iniciar sesión, espera a que el usuario lo haga en la ventana."""
+    import navegador
     avisado = False
     fin = time.time() + timeout_s
     while time.time() < fin:
         u = page.url
         if re.search(r"outlook\.(office|office365|cloud\.microsoft)[^/]*/mail", u):
+            if avisado:
+                navegador.fin_espera(t)
+                t.anotar("Outlook: sesión iniciada, sigo.")
             return
         if not avisado and ("login." in u or "microsoftonline" in u):
-            t.anotar("✋ Outlook pide iniciar sesión: hacelo en la ventana del notificador (espero).")
+            navegador.avisar_espera(t, "✋ Outlook pide iniciar sesión: hacelo en la ventana del notificador (espero).")
             avisado = True
-        time.sleep(1)
+        navegador.pausa(page, 1)   # no time.sleep: así page.url se actualiza
     raise RuntimeError("Outlook no inició sesión a tiempo.")
 
 

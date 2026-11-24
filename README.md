@@ -10,6 +10,10 @@
 >    Realizar Pase (motivo estándar, Tramitación, repartición y sector configurables: por defecto DGRDT / COLECTIVA).
 > 5. **Agenda**: fila en la planilla de audiencias (Google Sheets) y renglón en el Word de seguimiento (bajo el día de hoy).
 >
+> **Antes de enviar**, el agente busca el EX en SADE. Si SADE responde «El número SADE no existe» (por ejemplo, porque el
+> acta lo trae mal escrito), el paso queda en ✋ y la web pide el número correcto: se corrige en el mail, la agenda y SADE,
+> y la notificación sigue sola. También se puede elegir «Seguir sin SADE» y hacer la vinculación y el pase a mano.
+>
 > **También desde la web publicada** (notificador-dgrdt.vercel.app): con el agente abierto en la PC, después de generar
 > aparece **🔌 Conectar con el agente de esta PC**. La primera vez el navegador pide permiso para acceder a apps del equipo
 > (tocá «Permitir»); después se conecta solo. El agente le da acceso únicamente a esa web oficial.

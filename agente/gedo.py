@@ -16,6 +16,7 @@ RX_NUMERO = re.compile(r"\b[A-Z]{2,6}-\d{4}-\d{5,9}-+GCABA-[A-Z0-9]+\b")
 
 
 def _esperar_sesion(page, t, timeout_s=900):
+    import navegador
     avisado = False
     fin = time.time() + timeout_s
     while time.time() < fin:
@@ -23,15 +24,18 @@ def _esperar_sesion(page, t, timeout_s=900):
         if "gedo-web" in u and "login" not in u and "oidc_callback" not in u:
             try:
                 if page.get_by_text("Inicio de Documento").count():
+                    if avisado:
+                        navegador.fin_espera(t)
+                        t.anotar("GEDO: sesión iniciada, sigo.")
                     return
             except Exception:
                 pass
         if "oidc_callback" in u:   # "Bad Request" del inicio de sesión viejo: se reintenta solo
             page.goto(URL_GEDO, wait_until="domcontentloaded")
         elif ("identidad-gcaba" in u or "cas-pr" in u or "cas.buenosaires" in u) and not avisado:
-            t.anotar("✋ GEDO pide iniciar sesión: hacelo en la ventana del notificador (espero).")
+            navegador.avisar_espera(t, "✋ GEDO pide iniciar sesión: hacelo en la ventana del notificador (espero).")
             avisado = True
-        time.sleep(1.5)
+        navegador.pausa(page, 1.5)   # no time.sleep: así page.url se actualiza
     raise RuntimeError("GEDO no inició sesión a tiempo.")
 
 

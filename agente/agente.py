@@ -29,7 +29,7 @@ import trabajos    # noqa: E402
 from rutas import BASE, CASOS  # noqa: E402
 
 PUERTO = 8765
-VERSION = "1.1"
+VERSION = "1.2"
 
 
 def _token_persistente():
@@ -222,6 +222,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"error": "no hay notificaciones"}, 400)
             t = trabajos.crear(body)
             return self._json({"id": t.id})
+        if ruta.startswith("/api/trabajos/") and ruta.endswith("/responder"):
+            # respuesta a una pregunta del agente (ej. el número de EX correcto)
+            t = trabajos.obtener(ruta.split("/")[3])
+            ok = bool(t) and t.responder(body)
+            return self._json({"ok": ok} if ok else {"error": "No hay ninguna pregunta pendiente"}, 200 if ok else 409)
         if ruta.startswith("/api/trabajos/") and ruta.endswith("/cancelar"):
             t = trabajos.obtener(ruta.split("/")[3])
             if t:

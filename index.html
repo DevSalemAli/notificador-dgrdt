@@ -147,7 +147,12 @@
   .pasoI .tt{color:var(--text);font-weight:600}
   .pasoI .dd{color:var(--muted);font-size:12px;word-break:break-word}
   .pasoI.ok{border-color:var(--ok-bd)} .pasoI.error{border-color:var(--err-bd);background:var(--err-bg)}
+  .pasoI.esperando{border-color:var(--warn-bd);background:var(--warn-bg)}
   .pasoI a{font-size:12px}
+  .pasoI > div:last-child{flex:1;min-width:0}
+  .pregunta{margin-top:7px;display:flex;flex-direction:column;gap:7px}
+  .pregunta input{width:100%;box-sizing:border-box;font-family:inherit;font-size:13px}
+  .pregunta .row{display:flex;gap:6px;flex-wrap:wrap;margin:0}
   .spin.sm{width:14px;height:14px;border-width:2px}
   .adjs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .adj{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-2);cursor:pointer;user-select:none}
@@ -1348,11 +1353,16 @@ async function lanzarAuto(){
 const ICO={pendiente:"○", corriendo:'<div class="spin sm"></div>', ok:"✅", error:"❌", omitido:"⏭️", esperando:"✋"};
 function pintarPasos(t){
   const box=$("pasosBox"); if(!box) return;
+  // se redibuja solo si algo cambió (si no, se borraría lo que estás escribiendo en una pregunta)
+  const firma=JSON.stringify([t.estado,t.pasos,t.pregunta,t.error]);
+  if(box.dataset.firma===firma) return;
+  box.dataset.firma=firma;
   box.innerHTML="";
   (t.pasos||[]).forEach(p=>{
     const d=document.createElement("div"); d.className="pasoI "+p.estado;
     const links=(p.archivos||[]).map(a=>`<a href="${urlArchivo(a)}" target="_blank" rel="noopener">📄 ${escapeHtml(a.split(/[\\/]/).pop())}</a>`).join(" · ");
     d.innerHTML=`<div class="ico">${ICO[p.estado]||"○"}</div><div><div class="tt">${escapeHtml(p.titulo)}</div>${p.detalle?`<div class="dd">${escapeHtml(p.detalle)}</div>`:""}${links?`<div class="dd">${links}</div>`:""}</div>`;
+    if(t.pregunta && t.pregunta.paso===p.clave) d.lastElementChild.appendChild(cajaPregunta(t.id, t.pregunta));
     box.appendChild(d);
   });
   if(["ok","con_errores","error","cancelado"].includes(t.estado)){
@@ -1364,6 +1374,31 @@ function pintarPasos(t){
     box.appendChild(fin);
   }
 }
+// Pregunta del agente dentro de un paso (ej. «el EX no existe en SADE: escribí el correcto»).
+function cajaPregunta(tid, q){
+  const c=document.createElement("div"); c.className="pregunta";
+  if(q.campo){
+    const inp=document.createElement("input"); inp.type="text"; inp.value=q.valor||""; inp.spellcheck=false;
+    inp.placeholder="EX-AAAA-NNNNNNNN-GCABA-DGRDT"; c.appendChild(inp);
+    setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(e){} }, 50);
+    inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); const b=c.querySelector("button"); if(b) b.click(); } });
+  }
+  const row=document.createElement("div"); row.className="row";
+  (q.botones||[]).forEach((b,i)=>{
+    const btn=document.createElement("button"); btn.className="btn sm"+(i?" sec":""); btn.textContent=b.texto;
+    btn.onclick=async()=>{
+      const resp={accion:b.accion};
+      if(q.campo){ const v=c.querySelector("input").value.trim(); if(b.accion==="seguir" && !v){ toast("Escribí el número","err"); return; } resp[q.campo]=v; }
+      row.querySelectorAll("button").forEach(x=>x.disabled=true); btn.textContent="⏳ Enviando…";
+      try{ await api("/api/trabajos/"+tid+"/responder",{method:"POST",body:JSON.stringify(resp)}); toast("Listo, sigo con la notificación","ok"); }
+      catch(e){ toast(e.message,"err"); row.querySelectorAll("button").forEach(x=>x.disabled=false); btn.textContent=b.texto; }
+    };
+    row.appendChild(btn);
+  });
+  c.appendChild(row);
+  return c;
+}
+
 async function seguirTrabajo(id){
   for(;;){
     let t; try{ t=await api("/api/trabajos/"+id); }catch(e){ await sleep(1500); continue; }

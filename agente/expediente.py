@@ -16,11 +16,39 @@ URL_GEDO = "https://eut-pr.apps.buenosaires.gob.ar/gedo-web/"
 RX_NUM = re.compile(r"^\s*([A-Z]{2,6})\s*-\s*(\d{4})\s*-\s*(\d{2,9})(?:\s*-\s*)+GCABA\s*-\s*([A-Z0-9]+)", re.I)
 
 
+RX_CORTO = re.compile(r"^\s*([A-Z]{2,6})\s*-\s*(\d{4})\s*-\s*(\d{2,9})\s*-?\s*$", re.I)
+
+
+class NoExiste(Exception):
+    """El número de expediente no existe en SADE (por ejemplo, mal escrito en el acta)."""
+
+
 def partes(num):
     m = RX_NUM.match(num or "")
     if not m:
         raise RuntimeError(f"Número SADE inválido: {num}")
-    return m.group(1).upper(), m.group(2), m.group(3), m.group(4).upper()
+    # SADE usa 8 dígitos con ceros adelante (EX-2026-01234567), aunque en las actas a veces
+    # se escriba sin el cero (EX-2026-1234567): sin esto la búsqueda no lo encuentra.
+    return m.group(1).upper(), m.group(2), m.group(3).zfill(8), m.group(4).upper()
+
+
+def normalizar(num, reparticion=""):
+    """Número escrito a mano → 'EX-2026-01234567-GCABA-DGRDT'. Acepta '- -', minúsculas y espacios;
+    si falta la repartición (ej. 'EX-2026-1234567') usa la que se indique. ValueError si no se entiende."""
+    s = (num or "").strip().upper()
+    m = RX_NUM.match(s)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-GCABA-{m.group(4)}"
+    m = RX_CORTO.match(s)
+    if m and reparticion:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-GCABA-{reparticion.upper()}"
+    raise ValueError(f"No entiendo el número «{num}» (formato: EX-AAAA-NNNNNNNN-GCABA-REPARTICIÓN).")
+
+
+def patron(num):
+    """Regex que encuentra ESE número en un texto, escrito con o sin ceros y con o sin '-GCABA-REP'."""
+    tipo, anio, numero, rep = partes(num)
+    return re.compile(rf"\b{tipo}\s*-\s*{anio}\s*-\s*0*{int(numero)}(?:(?:\s*-\s*)+GCABA\s*-\s*{rep})?\b", re.I)
 
 
 def _ventanas(page):
@@ -48,17 +76,43 @@ def _cerrar_avisos(page, t):
     return textos
 
 
+def _ee_listo(pg):
+    """¿Esta pestaña muestra Expediente Electrónico con la sesión iniciada (barra de búsqueda)?"""
+    try:
+        if pg.is_closed():
+            return False
+        u = pg.url or ""
+        return ("eue-pr" in u and "expedientes-web" in u and "login" not in u
+                and pg.locator("input[placeholder*='número SADE']").count() > 0)
+    except Exception:
+        return False
+
+
 def _esperar_sesion(page, t, timeout_s=900):
+    """Espera a que SADE tenga la sesión iniciada y devuelve la pestaña lista para usar
+    (la misma, u otra pestaña del expediente si iniciaste sesión ahí)."""
+    import navegador
     avisado = False
     fin = time.time() + timeout_s
     while time.time() < fin:
-        u = page.url or ""
-        if ("expedientes-web" in u or "gedo-web" in u) and "login" not in u:
-            return
-        if ("identidad-gcaba" in u or "cas-pr" in u) and not avisado:
-            t.anotar("✋ SADE pide iniciar sesión: hacelo en la ventana del notificador (espero).")
+        if _ee_listo(page):
+            if avisado:
+                navegador.fin_espera(t)
+                t.anotar("SADE: sesión iniciada, sigo.")
+            return page
+        for otra in list(page.context.pages):
+            if otra is not page and _ee_listo(otra):
+                otra.bring_to_front()
+                if avisado:
+                    navegador.fin_espera(t)
+                    t.anotar("SADE: sesión iniciada (en otra pestaña), sigo ahí.")
+                return otra
+        u = "" if page.is_closed() else (page.url or "")
+        if not avisado and any(d in u for d in ("identidad-gcaba", "cas-pr", "cas.buenosaires")):
+            navegador.avisar_espera(t, "✋ SADE pide iniciar sesión: hacelo en la ventana del notificador (espero).")
             avisado = True
-        time.sleep(1.5)
+        vivas = [p for p in page.context.pages if not p.is_closed()]
+        navegador.pausa(page if not page.is_closed() else (vivas[0] if vivas else None), 1.5)
     raise RuntimeError("SADE no inició sesión a tiempo.")
 
 
@@ -66,17 +120,46 @@ def _tramitacion(page, ex):
     return page.locator(".z-window").filter(has_text=re.compile(r"Expediente:\s*" + re.escape(ex[:16]))).last
 
 
+def _buscar(page, expediente, t):
+    """Busca el EX con la barra de arriba de SADE y espera el resultado.
+    Si SADE responde «El número SADE no existe», cierra el cartel y lanza NoExiste."""
+    import navegador
+    tipo, anio, numero, rep = partes(expediente)
+    ex_txt = f"EX-{anio}-{numero}"
+    caja = page.locator("input[placeholder*='número SADE']").first
+    caja.wait_for(state="visible", timeout=30000)
+    caja.fill(f"EX-{anio}-{numero}- -GCABA-{rep}")
+    page.locator("button[title='Buscar']").first.click()
+    fin = time.time() + 30
+    while time.time() < fin:
+        filas = page.locator("tr").filter(has_text=ex_txt)
+        for i in range(filas.count()):
+            if filas.nth(i).is_visible():
+                return filas.nth(i)
+        if any(re.search(r"no existe", v["texto"], re.I) for v in _ventanas(page)):
+            _cerrar_avisos(page, t)
+            raise NoExiste(f"{expediente} no existe en SADE.")
+        navegador.pausa(page, 1)
+    raise RuntimeError(f"No encontré {ex_txt} en SADE.")
+
+
+def verificar(page, expediente, t):
+    """Comprueba que el EX exista en SADE, sin abrirlo ni tocarlo. Lanza NoExiste si no existe."""
+    page.goto(URL_EE, wait_until="domcontentloaded")
+    page = _esperar_sesion(page, t)
+    time.sleep(1.5)
+    _buscar(page, expediente, t)
+    return page
+
+
 def abrir_expediente(page, expediente, t):
     """Busca el EX y abre su ventana de Tramitación (Tramitar, o Adquirir → Sí → Tramitar)."""
     tipo, anio, numero, rep = partes(expediente)
     ex_txt = f"EX-{anio}-{numero}"
     page.goto(URL_EE, wait_until="domcontentloaded")
-    _esperar_sesion(page, t)
+    page = _esperar_sesion(page, t)
     time.sleep(2)
-    caja = page.locator("input[placeholder*='número SADE']").first
-    caja.wait_for(state="visible", timeout=30000)
-    caja.fill(f"EX-{anio}-{numero}- -GCABA-{rep}")
-    page.locator("button[title='Buscar']").first.click()
+    _buscar(page, expediente, t)     # NoExiste si el número está mal
     def fila_visible():
         fin = time.time() + 30
         while time.time() < fin:
@@ -293,6 +376,7 @@ def confirmar_pase(page, env, t):
 
 def vincular_y_pase(page, expediente, numeros, cfg, t, hacer_pase=True):
     win = abrir_expediente(page, expediente, t)
+    page = win.page        # puede ser otra pestaña (si la sesión se inició en otra)
     hechos = vincular(page, win, numeros, t)
     if hacer_pase:
         realizar_pase(page, win, cfg, t)
