@@ -131,6 +131,36 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .toast.err{background:#3a1717;border-color:var(--err-bd);color:#ffd9d6}.toast.ok{background:#0f2a20;border-color:var(--ok-bd);color:#c3f4dc}
 
+  /* ---- Automatización (agente local) ---- */
+  .auto{border:1px solid var(--border-strong);border-radius:var(--r);padding:12px 13px;margin-top:14px;background:#121a26}
+  .auto h3{margin:0 0 9px;font-size:13.5px;color:var(--text);display:flex;align-items:center;gap:8px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);margin:5px 0;cursor:pointer;user-select:none}
+  .chk input{width:16px;height:16px;accent-color:var(--azul2);flex:0 0 auto}
+  .chk.dis{opacity:.5;cursor:not-allowed}
+  .sesion{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+  .sesion .s{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--border-strong);color:var(--text-2);background:var(--surface-2)}
+  .sesion .s.ok{color:var(--ok);border-color:var(--ok-bd);background:var(--ok-bg)}
+  .sesion .s.no{color:var(--warn);border-color:var(--warn-bd);background:var(--warn-bg);cursor:pointer}
+  .pasos{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+  .pasoI{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;padding:7px 9px;border-radius:var(--r-sm);background:var(--surface-2);border:1px solid var(--border)}
+  .pasoI .ico{width:18px;flex:0 0 auto;text-align:center;line-height:1.35}
+  .pasoI .tt{color:var(--text);font-weight:600}
+  .pasoI .dd{color:var(--muted);font-size:12px;word-break:break-word}
+  .pasoI.ok{border-color:var(--ok-bd)} .pasoI.error{border-color:var(--err-bd);background:var(--err-bg)}
+  .pasoI a{font-size:12px}
+  .spin.sm{width:14px;height:14px;border-width:2px}
+  .adjs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .adj{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text-2);cursor:pointer;user-select:none}
+  .adj input{accent-color:var(--azul2);margin:0}
+  .adj.falta{border-color:var(--err-bd);color:var(--err);background:var(--err-bg);cursor:default}
+  .valid .v{font-size:12.5px;padding:7px 10px;border-radius:var(--r-sm);margin-top:6px;line-height:1.4}
+  .valid .v.error{background:var(--err-bg);border:1px solid var(--err-bd);color:var(--err)}
+  .valid .v.aviso{background:var(--warn-bg);border:1px solid var(--warn-bd);color:var(--warn)}
+  .prueba{background:var(--tad-bg);border:1px solid var(--tad-bd);color:var(--tad);padding:7px 10px;border-radius:var(--r-sm);font-size:12.5px;margin-top:8px}
+  button.btn.go{background:var(--ok);color:#06251a;width:100%;margin-top:10px;font-size:15px;min-height:44px}
+  button.btn.go:hover{background:#5ee3b0}
+  button.btn.go:disabled{background:#2c3a4d;color:#6c7b8f}
+
   @media (prefers-reduced-motion: reduce){ *{transition-duration:.01ms !important} .spin{animation-duration:1.6s} }
   @media (max-width:1100px){
     body{height:auto;overflow:visible}
@@ -170,9 +200,9 @@
       <input type="password" id="cfgKey" placeholder="Pegá tu clave (AIza...)" autocomplete="off" />
       <label class="lab">Modelo</label>
       <select id="cfgModel">
-        <option value="gemini-2.5-flash">gemini-2.5-flash (recomendado)</option>
-        <option value="gemini-2.0-flash">gemini-2.0-flash (más rápido)</option>
-        <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+        <option value="auto">Automático — el mejor disponible</option>
+        <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+        <option value="gemini-2.5-flash">gemini-2.5-flash</option>
       </select>
       <div class="row"><button class="btn sm" id="btnSaveKey">Guardar clave</button></div>
       <p class="muted" style="margin-top:10px">¿No tenés? Gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> → “Create API key”.</p>
@@ -219,11 +249,14 @@
           <button class="btn" id="btnChat">Enviar</button>
         </div>
       </details>
+      <div class="valid" id="validBox"></div>
+      <div class="auto" id="autoBox" style="display:none"></div>
       <div class="row">
         <button class="btn" id="btnCopyAll">📋 Copiar todo</button>
         <button class="btn gris" id="btnNuevo">＋ Nueva</button>
       </div>
     </div>
+    <div class="auto" id="agenteCfgBox" style="display:none"></div>
   </aside>
 
 </main>
@@ -499,6 +532,18 @@ Sindicatos frecuentes (sigla = nombre completo): FAECYS, SMATA, UPSRA, SUPASO, S
 CONTACTOS CONOCIDOS (emails que la DGRDT ya tiene; usalos cuando una parte no traiga email en el documento):
 (— por ahora vacío; se completará con la lista del equipo —)
 
+=== DATOS ESTRUCTURADOS (para la agenda y los controles automáticos) — COMPLETALOS SIEMPRE QUE EXISTAN ===
+- documento_notificado: número del documento que se notifica (la PV, el IF del acta o la RESOL/DI). Ej: "PV-2026-49127053-GCABA-DGRDT".
+- presentacion: número del RE/IF de la presentación de parte, si la hay; si no, "".
+- audiencia_fecha: fecha de la audiencia que se FIJA (la nueva) en formato DD/MM/AAAA. "" si el documento no fija audiencia.
+- audiencia_hora: hora de esa audiencia en formato HH:MM (24 h, normalizá "12.00" → "12:00"). "" si no hay.
+- modalidad: "presencial" o "virtual" (de la audiencia que se fija). "" si no hay.
+- link_meet: link de Google Meet copiado EXACTO del documento si es virtual; si no, "".
+- audiencia_anterior_fecha / audiencia_anterior_hora: solo en cambios de fecha (la audiencia que se deja sin efecto), mismos formatos.
+- fecha_presentacion: fecha de la presentación de parte (la del RE/IF de la presentación, ej. "Buenos Aires, Viernes 20 de Noviembre de 2026" → "20/11/2026"), formato DD/MM/AAAA. "" si no hay presentación.
+- motivo: UNO de estos valores exactos según el objeto del reclamo: SALARIALES, ART 223 BIS, CONDICIONES LABORALES, PREMIOS, OTROS, SIN ESPECIFICAR, SOSTENIMIENTO DE TRABAJO, APLICACION DE CCT, CERTIF LIBRE CONFLICT COLEC. Si no está claro, "SIN ESPECIFICAR".
+- Los números de documento escribilos SIEMPRE completos y sin espacios (EX-AAAA-NNNNNNNN-GCABA-DGRDT; si el documento dice "EX-2026-49118422- -GCABA-DGRDT", escribí "EX-2026-49118422-GCABA-DGRDT").
+
 Devolvé SOLO el JSON pedido. Cada elemento de "notificaciones" debe tener: via ("Email" o "TAD"), para (a quién va, ej. "Sindicato (SMATA)" o "Empresa LUIS JD SCORZA Y CIA S.A."), destinatarios (lista de emails; vacía si via="TAD"), asunto y cuerpo COMPLETOS (sin corchetes ni placeholders, salvo «FALTA: ...» si de verdad falta un dato). En las notificaciones por TAD agregá además cuit y documentos_a_vincular. Completá texto_interno solo en aperturas de audiencia. Las negritas se marcan con ** ** (doble asterisco). Normalmente hay 1 notificación; puede haber 2 si se separan canales (Email/TAD). Completá SIEMPRE el campo texto_interno eligiendo el ítem correcto del CATÁLOGO DE TEXTOS INTERNOS.`;
 
 /* ---------- Esquema de salida (JSON estructurado) ---------- */
@@ -521,6 +566,16 @@ const SCHEMA = {
       documentos_a_vincular:{type:"STRING"}
     }, required:["via","cuerpo"] } },
     texto_interno:{type:"STRING"},
+    documento_notificado:{type:"STRING"},
+    presentacion:{type:"STRING"},
+    audiencia_fecha:{type:"STRING"},
+    audiencia_hora:{type:"STRING"},
+    modalidad:{type:"STRING"},
+    link_meet:{type:"STRING"},
+    audiencia_anterior_fecha:{type:"STRING"},
+    audiencia_anterior_hora:{type:"STRING"},
+    fecha_presentacion:{type:"STRING"},
+    motivo:{type:"STRING"},
     notas:{type:"STRING"}
   },
   required:["escenario","notificaciones"]
@@ -544,7 +599,7 @@ const ESC_LABEL = {
 const $ = id => document.getElementById(id);
 function toast(msg, kind){ const t=$("toast"); t.textContent=msg; t.className="toast show "+(kind||""); clearTimeout(t._t); t._t=setTimeout(()=>t.className="toast",2800); }
 function getKey(){ return localStorage.getItem("dgrdt_gemini_key")||""; }
-function getModel(){ return localStorage.getItem("dgrdt_gemini_model")||"gemini-2.5-flash"; }
+function getModel(){ return localStorage.getItem("dgrdt_gemini_model")||"auto"; }
 
 async function fileToBase64(file){
   const buf = await file.arrayBuffer();
@@ -563,6 +618,9 @@ function parseRetryDelay(data){
 }
 
 /* ---------- Manejo de archivos ---------- */
+let UI = { ref:null, interno:null, notifs:[] };   // referencias a los campos editables del resultado
+const FILE_TXT = {};   // nombre de archivo -> texto extraído del PDF (para los controles)
+const FILE_NUM = {};   // nombre de archivo -> número de documento (PV-..., IF-..., etc.)
 let FILES = [];
 let CONV = [];            // conversación con la IA (para corregir por chat)
 let SCROLL_NEXT = false;  // si el próximo render debe centrar el resultado
@@ -577,21 +635,194 @@ fileInput.onchange=e=>{addFiles(e.target.files);fileInput.value="";};
 function addFiles(list){
   [...list].forEach(f=>{ if((f.type==="application/pdf"||/\.pdf$/i.test(f.name)) && !FILES.some(x=>x.name===f.name&&x.size===f.size)) FILES.push(f); });
   renderFiles();
+  extraerTextos();
 }
 function renderFiles(){
   const box=$("fileList"); box.innerHTML="";
   FILES.forEach((f,i)=>{
     const d=document.createElement("div"); d.className="fileItem";
-    d.innerHTML=`<span class="ic">📄</span><span class="fname">${f.name}</span>`;
+    d.innerHTML=`<span class="ic">📄</span><span class="fname">${escapeHtml(f.name)}</span>`;
     const rm=document.createElement("button"); rm.className="frm"; rm.textContent="✕"; rm.title="Quitar";
-    rm.onclick=()=>{ FILES.splice(i,1); renderFiles(); };
+    rm.onclick=()=>{ FILES.splice(i,1); delete FILE_TXT[f.name]; delete FILE_NUM[f.name]; renderFiles(); refrescarAdjuntos(); };
     d.appendChild(rm); box.appendChild(d);
   });
 }
 
+/* ---------- Lectura local de los PDF (para controlar lo que escribe la IA) ---------- */
+let _pdfjs=null;
+function cargarPdfjs(){
+  if(_pdfjs) return _pdfjs;
+  _pdfjs=new Promise((res,rej)=>{
+    const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    s.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; res(window.pdfjsLib); }catch(e){ rej(e); } };
+    s.onerror=()=>{ _pdfjs=null; rej(new Error("No se pudo cargar el lector de PDF")); };
+    document.head.appendChild(s);
+  });
+  return _pdfjs;
+}
+async function textoPdf(file){
+  const lib=await cargarPdfjs();
+  const doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  let out="";
+  for(let i=1;i<=Math.min(doc.numPages,40);i++){
+    const tc=await (await doc.getPage(i)).getTextContent();
+    out+=tc.items.map(it=>it.str).join(" ")+"\n";
+  }
+  return out;
+}
+// Números de documento GCABA: PV-2026-49127053-GCABA-DGRDT, EX-2026-49118422- -GCABA-DGRDT, RESOL-2026-123-GCABA-SECTE…
+const NUM_RE=/\b([A-Z]{2,6})\s*-\s*(\d{4})\s*-\s*(\d{2,9})(?:\s*-\s*)+GCABA\s*-\s*([A-Z0-9]+)\b/g;
+function numerosEn(txt){
+  const s=new Set(); let m; NUM_RE.lastIndex=0;
+  const t=String(txt||"");
+  while((m=NUM_RE.exec(t))){ s.add(`${m[1]}-${m[2]}-${m[3]}-GCABA-${m[4]}`.toUpperCase()); }
+  return [...s];
+}
+function numDeNombre(nombre){ return numerosEn(String(nombre).replace(/\.pdf$/i,"").replace(/_/g,"-"))[0]||""; }
+function numDeTexto(txt){
+  const m=/N[úu]mero:\s*([A-Z]{2,6}\s*-\s*\d{4}\s*-\s*\d{2,9}(?:\s*-\s*)+GCABA\s*-\s*[A-Z0-9]+)/i.exec(txt||"");
+  return m ? numerosEn(m[1])[0]||"" : "";
+}
+async function extraerTextos(){
+  for(const f of FILES){
+    if(FILE_TXT[f.name]!==undefined) continue;
+    FILE_TXT[f.name]="";
+    FILE_NUM[f.name]=numDeNombre(f.name);
+    try{
+      const t=await textoPdf(f);
+      FILE_TXT[f.name]=t;
+      if(!FILE_NUM[f.name]) FILE_NUM[f.name]=numDeTexto(t)||"";
+    }catch(e){ /* sin texto: igual se puede notificar */ }
+  }
+  refrescarAdjuntos();
+}
+
+/* ---------- Adjuntos de cada mail ---------- */
+function lineasSeAdjunta(cuerpo){
+  return String(cuerpo||"").split(/\n/).filter(l=>/^\s*\**\s*se adjunta/i.test(l));
+}
+function archivoPorNumero(num){
+  return FILES.find(f=>FILE_NUM[f.name]===num) || FILES.find(f=>String(f.name).toUpperCase().replace(/\s/g,"").includes(num)) || null;
+}
+function derivarAdjuntos(u){
+  if(!u || u.esTAD || !u.cuerpo) return;
+  const nums=[]; lineasSeAdjunta(u.cuerpo.value).forEach(l=>numerosEn(l).forEach(n=>{ if(!nums.includes(n)) nums.push(n); }));
+  u.adjSel=new Set(); u.adjFaltan=[];
+  nums.forEach(n=>{ const f=archivoPorNumero(n); if(f) u.adjSel.add(f.name); else u.adjFaltan.push(n); });
+  pintarAdjuntos(u);
+}
+function pintarAdjuntos(u){
+  if(!u.adjBox) return;
+  u.adjBox.innerHTML="";
+  FILES.forEach(f=>{
+    const l=document.createElement("label"); l.className="adj";
+    const c=document.createElement("input"); c.type="checkbox"; c.checked=u.adjSel.has(f.name);
+    c.onchange=()=>{ if(c.checked) u.adjSel.add(f.name); else u.adjSel.delete(f.name); revalidar(); };
+    l.appendChild(c); l.appendChild(document.createTextNode(" "+f.name));
+    u.adjBox.appendChild(l);
+  });
+  u.adjFaltan.forEach(n=>{ const s=document.createElement("span"); s.className="adj falta"; s.textContent="⚠️ Falta subir "+n; u.adjBox.appendChild(s); });
+  if(!FILES.length && !u.adjFaltan.length){ const s=document.createElement("span"); s.className="muted"; s.textContent="(no hay PDF subidos)"; u.adjBox.appendChild(s); }
+}
+function refrescarAdjuntos(){ UI.notifs.forEach(u=>{ if(!u.esTAD) derivarAdjuntos(u); }); revalidar(); }
+
+/* ---------- Controles: frenan el envío si la IA inventó o dejó algo sin completar ---------- */
+const CONTACTOS = new Set();   // emails conocidos que no hace falta que estén en los PDF
+function parseEmails(s){ return [...new Set(String(s||"").split(/[;,\s]+/).map(x=>x.trim().toLowerCase()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))]; }
+const _norm = s => String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," ");
+function validar(){
+  if(!LAST_OUT) return [];
+  const res=[]; const add=(nivel,msg)=>res.push({nivel,msg});
+  const hayTexto=Object.values(FILE_TXT).some(t=>t && t.length>40);
+  const docs=Object.values(FILE_TXT).join("\n");
+  const docsN=_norm(docs), docsCompact=docs.toUpperCase().replace(/\s+/g,"");
+  const docsNums=new Set([...numerosEn(docs), ...Object.values(FILE_NUM).filter(Boolean)]);
+  const multi=UI.notifs.length>1;
+  UI.notifs.forEach((u,i)=>{
+    const quien = multi ? ` (${u.n.para||("notificación "+(i+1))})` : "";
+    if(u.esTAD){ if(/FALTA/i.test(u.tad.value)) add("aviso","Hay un dato «FALTA» en el bloque de TAD"+quien+"."); return; }
+    const destTxt=u.dest.value, asunto=u.asunto.value, cuerpo=u.cuerpo.value;
+    const dest=parseEmails(destTxt);
+    if(/FALTA/i.test(destTxt+"\n"+asunto+"\n"+cuerpo)) add("error","Hay un dato marcado «FALTA»"+quien+". Completalo o borralo antes de enviar.");
+    if(/\[[^\]\n]{2,50}\]/.test(asunto+"\n"+cuerpo)) add("error","Quedó un campo sin completar entre corchetes"+quien+".");
+    if(!dest.length) add("error","No hay destinatarios válidos"+quien+".");
+    const malos=destTxt.split(/[;,\s]+/).map(x=>x.trim()).filter(x=>x && /@/.test(x) && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+    if(malos.length) add("error","Email con formato inválido"+quien+": "+malos.join(", "));
+    if(!asunto.trim()) add("error","Falta el asunto"+quien+".");
+    if(hayTexto){
+      const raros=dest.filter(e=>!docsN.includes(e) && !CONTACTOS.has(e));
+      if(raros.length) add("aviso","Estos emails no aparecen en los PDF"+quien+": "+raros.join(", ")+" — confirmá que sean correctos.");
+      numerosEn(asunto+"\n"+cuerpo).forEach(num=>{ if(!docsNums.has(num) && !docsCompact.includes(num)) add("aviso","El número "+num+" no aparece en los PDF"+quien+"."); });
+      (cuerpo.match(/https?:\/\/meet\.google\.com\/[a-z0-9-]+/gi)||[]).forEach(l=>{ if(!docsN.includes(_norm(l).replace(/^https?:\/\//,""))) add("error","El link de Meet "+l+" no aparece en los PDF"+quien+"."); });
+      const fechas=[...cuerpo.matchAll(/(\d{1,2})\s+de\s+([a-záéíóú]+)\s+de\s+(\d{4})/gi)];
+      fechas.forEach(m=>{ const f=parseInt(m[1],10)+" de "+_norm(m[2])+" de "+m[3]; const f0=String(parseInt(m[1],10)).padStart(2,"0")+" de "+_norm(m[2])+" de "+m[3];
+        if(!docsN.includes(f) && !docsN.includes(f0)) add("aviso","La fecha «"+m[0]+"» no aparece así en los PDF"+quien+"."); });
+      const horas=[...cuerpo.matchAll(/a las\s+\**\s*(\d{1,2})[:.](\d{2})/gi)];
+      horas.forEach(m=>{ const h=parseInt(m[1],10), mm=m[2]; const pats=[h+":"+mm, h+"."+mm, String(h).padStart(2,"0")+":"+mm, String(h).padStart(2,"0")+"."+mm];
+        if(!pats.some(p=>docs.includes(p))) add("aviso","La hora "+m[1]+":"+mm+" no aparece en los PDF"+quien+"."); });
+    }
+    if(u.adjFaltan.length) add("error","Falta subir para adjuntar"+quien+": "+u.adjFaltan.join(", "));
+    if(FILES.length && !u.adjSel.size) add("aviso","El mail"+quien+" no lleva ningún adjunto.");
+  });
+  if(!FILES.length) add("aviso","No hay PDF cargados (si es del historial, volvé a subirlos para adjuntarlos).");
+  return res;
+}
+let _rvT=null;
+function revalidarDiferido(){ clearTimeout(_rvT); _rvT=setTimeout(revalidar, 450); }
+function revalidar(){
+  const box=$("validBox"); if(!box) return;
+  const v=validar(); box.innerHTML="";
+  v.forEach(x=>{ const d=document.createElement("div"); d.className="v "+x.nivel; d.textContent=(x.nivel==="error"?"⛔ ":"⚠️ ")+x.msg; box.appendChild(d); });
+  const b=$("btnAuto"); if(b){ const errs=v.filter(x=>x.nivel==="error").length; b.disabled=!!errs || !!AUTO.corriendo; b.title=errs?"Corregí los errores marcados en rojo":""; }
+  return v;
+}
+
 /* ---------- Generar (llamar a Gemini) ---------- */
 $("btnGen").onclick = generar;
-const MODEL_FALLBACK = ["gemini-2.5-flash","gemini-2.0-flash","gemini-2.0-flash-lite","gemini-1.5-flash"];
+// Lista de modelos a probar, de mejor a peor. Se actualiza sola con los modelos
+// que Google tenga disponibles para tu clave (siempre se elige el más nuevo y potente).
+let MODEL_FALLBACK = ["gemini-2.5-pro","gemini-2.5-flash","gemini-2.0-flash","gemini-2.0-flash-lite"];
+function rankModelo(id){
+  const m=/^gemini-(\d+(?:\.\d+)?)-(pro|flash-lite|flash)(.*)$/.exec(String(id||""));
+  if(!m) return -1;
+  const resto=m[3]||"";
+  if(/tts|image|audio|live|embedding|computer|robotics|search|8b/i.test(resto)) return -1;
+  const ver=parseFloat(m[1]);
+  const tier={"pro":3,"flash":2,"flash-lite":1}[m[2]]||0;
+  const estable = resto==="" ? 0.5 : (/latest/i.test(resto) ? 0.4 : (/preview|exp/i.test(resto) ? 0 : 0.2));
+  return ver*10 + tier + estable;
+}
+function aplicarModelos(list){
+  if(!list||!list.length) return;
+  MODEL_FALLBACK = list.slice(0,6);
+  const sel=$("cfgModel"), actual=getModel();
+  sel.innerHTML="";
+  const auto=document.createElement("option"); auto.value="auto";
+  auto.textContent="Automático — el mejor disponible ("+list[0]+")"; sel.appendChild(auto);
+  list.slice(0,12).forEach(id=>{ const o=document.createElement("option"); o.value=id; o.textContent=id; sel.appendChild(o); });
+  sel.value=[...sel.options].some(o=>o.value===actual)?actual:"auto";
+}
+async function descubrirModelos(forzar){
+  const key=getKey(); if(!key) return;
+  try{
+    const c=JSON.parse(localStorage.getItem("dgrdt_models")||"null");
+    if(!forzar && c && Date.now()-c.t<12*3600e3 && Array.isArray(c.list) && c.list.length){ aplicarModelos(c.list); return; }
+  }catch(e){}
+  try{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key="+encodeURIComponent(key));
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!Array.isArray(d.models)) return;
+    const list=d.models.filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent"))
+      .map(m=>String(m.name||"").replace(/^models\//,"")).filter(id=>rankModelo(id)>0)
+      .sort((a,b)=>rankModelo(b)-rankModelo(a));
+    if(list.length){ localStorage.setItem("dgrdt_models",JSON.stringify({t:Date.now(),list})); aplicarModelos(list); }
+  }catch(e){}
+}
+// modelos que dieron "límite alcanzado" hace poco: se saltean un rato
+function _skip(){ try{ return JSON.parse(localStorage.getItem("dgrdt_skip")||"{}"); }catch(e){ return {}; } }
+function marcarSkip(m){ const s=_skip(); s[m]=Date.now(); try{ localStorage.setItem("dgrdt_skip",JSON.stringify(s)); }catch(e){} }
+function enSkip(m){ const t=_skip()[m]; return t && (Date.now()-t)<15*60e3; }
 
 // Arma el contenido para la IA: manda el PDF completo (la IA lo lee tal cual, con los emails intactos).
 async function buildParts(){
@@ -616,11 +847,13 @@ async function callGemini(model, contents){
 // Ejecuta un turno con la IA usando TODA la conversación (CONV). Prueba modelos y reintenta ante el límite.
 async function runTurn(onMsg){
   const chosen=getModel();
-  const models=[chosen, ...MODEL_FALLBACK.filter(m=>m!==chosen)];
+  let models = chosen==="auto" ? MODEL_FALLBACK.slice() : [chosen, ...MODEL_FALLBACK.filter(m=>m!==chosen)];
+  const libres = models.filter(m=>!enSkip(m));
+  if(libres.length) models = libres;   // si todos están en pausa, probar igual
   let lastDetail="";
   for(let mi=0; mi<models.length; mi++){
     const model=models[mi];
-    if(mi>0 && onMsg) onMsg("Probando con "+model+"…");
+    if(onMsg) onMsg(mi===0 ? "Leyendo los documentos con IA ("+model+")…" : "Probando con "+model+"…");
     for(let attempt=0; attempt<2; attempt++){
       let res;
       try{ res=await callGemini(model, CONV); }
@@ -628,7 +861,8 @@ async function runTurn(onMsg){
 
       if(res.ok){
         const cand=res.data.candidates&&res.data.candidates[0];
-        const txt=cand&&cand.content&&cand.content.parts&&cand.content.parts[0]&&cand.content.parts[0].text;
+        const parts=(cand&&cand.content&&cand.content.parts)||[];
+        const txt=parts.filter(p=>p&&p.text&&!p.thought).map(p=>p.text).join("");
         if(!txt){ lastDetail="La IA no devolvió texto."; break; }
         let out; try{ out=JSON.parse(txt); }catch(e){ lastDetail="Respuesta no válida de la IA."; break; }
         CONV.push({ role:"model", parts:[{text:txt}] });
@@ -642,8 +876,10 @@ async function runTurn(onMsg){
       if(res.status===429 || /RESOURCE_EXHAUSTED|quota/i.test(msg)){
         const delay=parseRetryDelay(res.data);
         if(attempt===0 && delay && delay<=9000){ if(onMsg) onMsg("Límite momentáneo, reintentando…"); await sleep(delay+400); continue; }
+        marcarSkip(model);
         break; // siguiente modelo
       }
+      if(res.status>=500){ if(attempt===0){ await sleep(1500); continue; } break; } // Google saturado: reintento / otro modelo
       if(res.status===404 || /not found|not supported|unsupported|does not exist/i.test(msg)) break; // otro modelo
       return {ok:false, error:msg};
     }
@@ -700,7 +936,8 @@ function render(out){
   const _h=new Date(); const _fref=_h.getDate()+"-"+(_h.getMonth()+1)+"-"+String(_h.getFullYear()).slice(2);
   const _ref="NOTIF. FEHAC. "+(String(out.sigla||out.sindicato||"").trim())+" - "+(String(out.empresa||"").trim())+" "+_fref;
   const _rl=document.createElement("label"); _rl.className="lab"; _rl.textContent="Referencia para GEDO"; rw.appendChild(_rl);
-  rw.appendChild(outBox(_ref, 1, "Referencia GEDO"));
+  UI = { ref:null, interno:null, notifs:[] };
+  const _rb=outBox(_ref, 1, "Referencia GEDO"); rw.appendChild(_rb); UI.ref=_rb.querySelector("textarea");
 
   let notifs = Array.isArray(out.notificaciones) && out.notificaciones.length ? out.notificaciones : null;
   if(!notifs){ // compatibilidad con respuestas en formato viejo
@@ -715,7 +952,7 @@ function render(out){
   const ti=(out.texto_interno||"").trim();
   if(ti){
     const lbl=document.createElement("label"); lbl.className="lab"; lbl.textContent="📋 Texto interno"; iw.appendChild(lbl);
-    iw.appendChild(outBox(ti, 3, "Texto interno"));
+    const ib=outBox(ti, 3, "Texto interno"); iw.appendChild(ib); UI.interno=ib.querySelector("textarea");
   }
   // aviso de negritas
   const hayBold = notifs.some(n=>/\*\*/.test(n.cuerpo||"")) || /\*\*/.test(ti);
@@ -726,6 +963,9 @@ function render(out){
   { const es=$("emptyState"); if(es) es.style.display="none"; const sh=$("sideHint"); if(sh) sh.style.display="none"; const sp=$("sidePanel"); if(sp) sp.style.display=""; }
   $("cardOut").style.display="block";
   if(SCROLL_NEXT){ $("cardOut").scrollIntoView({behavior:"smooth", block:"start"}); SCROLL_NEXT=false; }
+  UI.notifs.forEach(u=>{ if(!u.esTAD) derivarAdjuntos(u); });
+  revalidar();
+  renderAuto();
 }
 
 // Copia conservando negritas: **texto** -> <b>texto</b> (HTML), para que Outlook las respete.
@@ -765,6 +1005,8 @@ function buildNotifBlock(n,i,multi,expediente){
     if(n.para){ const p=document.createElement("span"); p.className="paraTxt"; p.textContent=n.para; h.appendChild(p); }
     wrap.appendChild(h);
   }
+  const reg={ n, esTAD, adjSel:new Set(), adjFaltan:[] };
+  UI.notifs.push(reg);
   if(esTAD){
     const tad =
       "Expediente: "+(expediente||"")+"\n"+
@@ -773,18 +1015,25 @@ function buildNotifBlock(n,i,multi,expediente){
       "Documentos a vincular: "+(n.documentos_a_vincular||"")+"\n"+
       "Mensaje: "+(n.cuerpo||"");
     const lbl=document.createElement("label"); lbl.className="lab"; lbl.textContent="Bloque para cargar en TAD"; wrap.appendChild(lbl);
-    wrap.appendChild(outBox(tad, 12, "TAD"));
+    const tb=outBox(tad, 12, "TAD"); wrap.appendChild(tb); reg.tad=tb.querySelector("textarea");
+    reg.tad.addEventListener("input", revalidarDiferido);
   }else{
     const g=document.createElement("div"); g.className="g2";
     const cD=document.createElement("div");
     const lblD=document.createElement("label"); lblD.className="lab"; lblD.textContent="Destinatarios (Para:)"; cD.appendChild(lblD);
-    cD.appendChild(outBox((n.destinatarios||[]).join("; "), 2, "Emails"));
+    const db=outBox((n.destinatarios||[]).join("; "), 2, "Emails"); cD.appendChild(db); reg.dest=db.querySelector("textarea");
     const cA=document.createElement("div");
     const lblA=document.createElement("label"); lblA.className="lab"; lblA.textContent="Asunto"; cA.appendChild(lblA);
-    cA.appendChild(outBox(n.asunto, 2, "Asunto"));
+    const ab=outBox(n.asunto, 2, "Asunto"); cA.appendChild(ab); reg.asunto=ab.querySelector("textarea");
     g.appendChild(cD); g.appendChild(cA); wrap.appendChild(g);
     const lblC=document.createElement("label"); lblC.className="lab"; lblC.textContent="Cuerpo"; wrap.appendChild(lblC);
-    wrap.appendChild(outBox(n.cuerpo, 10, "Cuerpo"));
+    const cb=outBox(n.cuerpo, 10, "Cuerpo"); wrap.appendChild(cb); reg.cuerpo=cb.querySelector("textarea");
+    // adjuntos (se deducen de las líneas "Se adjunta ..." y se pueden tildar/destildar)
+    const lblJ=document.createElement("label"); lblJ.className="lab"; lblJ.textContent="📎 Adjuntos del mail"; wrap.appendChild(lblJ);
+    reg.adjBox=document.createElement("div"); reg.adjBox.className="adjs"; wrap.appendChild(reg.adjBox);
+    reg.dest.addEventListener("input", revalidarDiferido);
+    reg.asunto.addEventListener("input", revalidarDiferido);
+    reg.cuerpo.addEventListener("input", ()=>{ clearTimeout(reg._t); reg._t=setTimeout(()=>{ derivarAdjuntos(reg); revalidar(); }, 500); });
     const bOWA=document.createElement("button"); bOWA.className="btn"; bOWA.style.marginTop="10px";
     bOWA.textContent="✉️ Abrir en Outlook web";
     bOWA.onclick=()=>abrirOWA(n);
@@ -836,6 +1085,198 @@ function abrirOWA(n){
   else toast("Outlook abierto (Para/Asunto). El cuerpo está copiado: pegalo en el mensaje con Ctrl+V","ok");
 }
 
+/* ============================================================================
+   AUTOMATIZACIÓN — solo aparece cuando la web la abre el "Agente Notificador"
+   (programa local que maneja Outlook web, GEDO y la agenda en esta PC).
+   ========================================================================== */
+const AGENTE = (()=>{ const m=document.querySelector('meta[name="agente-token"]'); return { on:!!m, token:m?m.content:"" }; })();
+const AUTO = { corriendo:false, cfg:null, ses:{}, tid:null };
+async function api(path, opts){
+  opts=opts||{};
+  const r=await fetch(path,{ method:opts.method||"GET", body:opts.body, headers:{"Content-Type":"application/json","X-Agente-Token":AGENTE.token} });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error||("HTTP "+r.status));
+  return j;
+}
+const urlArchivo = p => "/api/archivo?k="+encodeURIComponent(AGENTE.token)+"&ruta="+encodeURIComponent(p);
+
+async function refrescarEstado(){
+  if(!AGENTE.on) return;
+  try{
+    const e=await api("/api/estado"); AUTO.cfg=e.config; AUTO.base=e.base; AUTO.ses={chrome:e.chrome, outlook:e.outlook, gedo:e.gedo};
+    // la clave de Gemini guardada en el agente se recupera sola en este navegador
+    if(!getKey() && e.config && e.config.gemini_key){
+      localStorage.setItem("dgrdt_gemini_key", e.config.gemini_key);
+      if(e.config.gemini_model) localStorage.setItem("dgrdt_gemini_model", e.config.gemini_model);
+      $("cfgKey").value=getKey(); $("cfgDetails").open=false; descubrirModelos(true);
+    }
+  }
+  catch(e){ AUTO.ses={caido:true}; }
+  pintarSesiones(); pintarCfgAgente();
+}
+function pintarSesiones(){
+  const b=$("sesBox"); if(!b) return;
+  const s=AUTO.ses||{};
+  if(s.caido){ b.innerHTML='<span class="s no">⚠️ El agente no responde — abrí «Notificador DGRDT» del escritorio</span>'; return; }
+  const pill=(ok,txt,falta)=>`<span class="s ${ok?"ok":"no"}" ${ok?"":'data-login="1"'} title="${ok?"":"Clic para abrir la ventana e iniciar sesión"}">${ok?"✓ "+txt:"⚠️ "+falta}</span>`;
+  b.innerHTML=pill(s.outlook,"Outlook","Outlook: iniciá sesión")+pill(s.gedo,"GEDO","GEDO: iniciá sesión");
+  b.querySelectorAll('[data-login]').forEach(el=>el.onclick=()=>api("/api/navegador",{method:"POST",body:"{}"}).then(()=>toast("Iniciá sesión en las pestañas de Outlook y GEDO","ok")).catch(e=>toast(e.message,"err")));
+  const cfg=AUTO.cfg||{};
+  const lx=$("lExcel"), lw=$("lWord");
+  if(lx){ const ok=!!cfg.agenda_excel; lx.classList.toggle("dis",!ok); $("pExcel").disabled=!ok; if(!ok) $("pExcel").checked=false; lx.title=ok?cfg.agenda_excel:"Configurá el Excel de agenda en ⚙️ Ajustes del agente"; }
+  if(lw){ const ok=!!cfg.agenda_word; lw.classList.toggle("dis",!ok); $("pWord").disabled=!ok; if(!ok) $("pWord").checked=false; lw.title=ok?cfg.agenda_word:"Configurá el Word de agenda en ⚙️ Ajustes del agente"; }
+  const pb=$("pruebaBox"); if(pb) pb.innerHTML = cfg.modo_prueba ? '<div class="prueba">🧪 <b>MODO PRUEBA</b>: los mails van solo a <b>'+escapeHtml(cfg.correo_prueba||"(sin correo de prueba)")+'</b> y GEDO no se firma.</div>' : "";
+}
+
+function renderAuto(){
+  const box=$("autoBox"); if(!box) return;
+  if(!AGENTE.on || !LAST_OUT){ box.style.display="none"; return; }
+  box.style.display="";
+  if(AUTO.corriendo) return;  // no pisar el progreso de un envío en curso
+  const hayMail=UI.notifs.some(u=>!u.esTAD);
+  box.innerHTML=`
+    <h3>🤖 Notificar automáticamente</h3>
+    <div class="sesion" id="sesBox"></div>
+    <label class="chk"><input type="checkbox" id="pMail" ${hayMail?"checked":"disabled"}> Enviar el mail desde Outlook web</label>
+    <label class="chk"><input type="checkbox" id="pPdf" checked> Guardar el PDF del mail enviado</label>
+    <label class="chk"><input type="checkbox" id="pGedo" checked> GEDO: Notificación fehaciente (firmar y descargar)</label>
+    <label class="chk"><input type="checkbox" id="pVinc" checked> Expediente: vincular y hacer el pase</label>
+    <label class="chk"><input type="checkbox" id="pImp"> Imprimir el documento final</label>
+    <label class="chk" id="lExcel"><input type="checkbox" id="pExcel" checked> Agendar en la planilla (COLECTIVAS)</label>
+    <label class="chk" id="lWord"><input type="checkbox" id="pWord" checked> Agendar en el Word de seguimiento</label>
+    <div id="pruebaBox"></div>
+    <button class="btn go" id="btnAuto">🚀 Notificar automáticamente</button>
+    <div class="pasos" id="pasosBox"></div>`;
+  const encadenar=()=>{ const m=$("pMail").checked, p=m&&$("pPdf").checked, g=p&&$("pGedo").checked;
+    $("pPdf").disabled=!m; $("pGedo").disabled=!p; $("pVinc").disabled=!g; };
+  $("pMail").onchange=encadenar; $("pPdf").onchange=encadenar; $("pGedo").onchange=encadenar;
+  if(AUTO.cfg && AUTO.cfg.vincular===false) $("pVinc").checked=false;
+  $("btnAuto").onclick=lanzarAuto;
+  if(AUTO.cfg && AUTO.cfg.imprimir) $("pImp").checked=true;
+  pintarSesiones(); revalidar(); refrescarEstado();
+}
+
+async function armarTrabajo(){
+  const o=LAST_OUT||{};
+  const caso={ expediente:o.expediente||"", sindicato:o.sindicato||"", sigla:o.sigla||"", empresa:o.empresa||"",
+    escenario:o.escenario||"", tipo_documento:o.tipo_documento||"",
+    ref_gedo:(UI.ref&&UI.ref.value||"").trim(), texto_interno:(UI.interno&&UI.interno.value||"").trim(),
+    documento_notificado:o.documento_notificado||"", presentacion:o.presentacion||"",
+    audiencia_fecha:o.audiencia_fecha||"", audiencia_hora:o.audiencia_hora||"", modalidad:o.modalidad||"", link_meet:o.link_meet||"",
+    audiencia_anterior_fecha:o.audiencia_anterior_fecha||"", audiencia_anterior_hora:o.audiencia_anterior_hora||"",
+    fecha_presentacion:o.fecha_presentacion||"", motivo:o.motivo||"", notas:o.notas||"" };
+  const notificaciones=UI.notifs.map(u=> u.esTAD
+    ? { via:"TAD", para:u.n.para||"", cuit:u.n.cuit||"", documentos_a_vincular:u.n.documentos_a_vincular||"", cuerpo:u.tad.value }
+    : { via:"Email", para:u.n.para||"", destinatarios:parseEmails(u.dest.value), asunto:u.asunto.value.trim(), cuerpo:u.cuerpo.value, adjuntos:[...u.adjSel] });
+  const usados=new Set(); notificaciones.forEach(n=>(n.adjuntos||[]).forEach(a=>usados.add(a)));
+  const archivos=[];
+  for(const f of FILES){ archivos.push({ nombre:f.name, base64:await fileToBase64(f), adjunto:usados.has(f.name) }); }
+  const ck=id=>{ const e=$(id); return !!(e && e.checked && !e.disabled); };
+  return { caso, notificaciones, archivos,
+    pasos:{ mail:ck("pMail"), pdf_mail:ck("pPdf"), gedo:ck("pGedo"), vincular:ck("pVinc"), imprimir:ck("pImp"), agenda_excel:ck("pExcel"), agenda_word:ck("pWord") } };
+}
+
+async function lanzarAuto(){
+  const v=revalidar()||[];
+  if(v.some(x=>x.nivel==="error")){ toast("Corregí lo marcado en rojo antes de enviar","err"); return; }
+  if(!AUTO.ses.outlook && $("pMail").checked){ toast("Primero iniciá sesión en Outlook (clic en el aviso amarillo)","err"); return; }
+  if(!AUTO.ses.gedo && $("pGedo").checked && !$("pGedo").disabled){ toast("Primero iniciá sesión en GEDO (clic en el aviso amarillo)","err"); return; }
+  const cfg=AUTO.cfg||{};
+  const mails=UI.notifs.filter(u=>!u.esTAD);
+  const resumen=mails.map(u=>"• Para: "+(cfg.modo_prueba?(cfg.correo_prueba+"  (PRUEBA, en vez de: "+parseEmails(u.dest.value).join(", ")+")"):parseEmails(u.dest.value).join(", "))+
+    "\n  Asunto: "+u.asunto.value.trim()+"\n  Adjuntos: "+([...u.adjSel].join(", ")||"(ninguno)")).join("\n\n");
+  const avisos=v.filter(x=>x.nivel==="aviso").map(x=>"⚠️ "+x.msg).join("\n");
+  const pase = ($("pVinc").checked && !$("pVinc").disabled && !cfg.modo_prueba)
+    ? "\n\nDespués: vincular en "+((LAST_OUT&&LAST_OUT.expediente)||"el expediente")+" y hacer el pase a "+(cfg.pase_reparticion||"DGRDT")+" / "+(cfg.pase_sector||"COLECTIVA")+"." : "";
+  if(!confirm((cfg.modo_prueba?"🧪 MODO PRUEBA\n\n":"")+"Se va a ENVIAR:\n\n"+resumen+pase+(avisos?"\n\nAvisos:\n"+avisos:"")+"\n\n¿Confirmás?")) return;
+  AUTO.corriendo=true; revalidar();
+  $("btnAuto").textContent="⏳ Trabajando…";
+  try{
+    const payload=await armarTrabajo();
+    const r=await api("/api/trabajos",{method:"POST", body:JSON.stringify(payload)});
+    AUTO.tid=r.id;
+    await seguirTrabajo(r.id);
+  }catch(e){
+    toast("No se pudo iniciar: "+e.message,"err");
+  }finally{
+    AUTO.corriendo=false; const b=$("btnAuto"); if(b) b.textContent="🚀 Notificar automáticamente"; revalidar();
+  }
+}
+
+const ICO={pendiente:"○", corriendo:'<div class="spin sm"></div>', ok:"✅", error:"❌", omitido:"⏭️", esperando:"✋"};
+function pintarPasos(t){
+  const box=$("pasosBox"); if(!box) return;
+  box.innerHTML="";
+  (t.pasos||[]).forEach(p=>{
+    const d=document.createElement("div"); d.className="pasoI "+p.estado;
+    const links=(p.archivos||[]).map(a=>`<a href="${urlArchivo(a)}" target="_blank" rel="noopener">📄 ${escapeHtml(a.split(/[\\/]/).pop())}</a>`).join(" · ");
+    d.innerHTML=`<div class="ico">${ICO[p.estado]||"○"}</div><div><div class="tt">${escapeHtml(p.titulo)}</div>${p.detalle?`<div class="dd">${escapeHtml(p.detalle)}</div>`:""}${links?`<div class="dd">${links}</div>`:""}</div>`;
+    box.appendChild(d);
+  });
+  if(["ok","con_errores","error","cancelado"].includes(t.estado)){
+    const fin=document.createElement("div"); fin.className="pasoI "+(t.estado==="ok"?"ok":"error");
+    fin.innerHTML=`<div class="ico">${t.estado==="ok"?"🎉":"⚠️"}</div><div><div class="tt">${t.estado==="ok"?"¡Listo! Notificación completa.":"Terminó con problemas"}</div>${t.error?`<div class="dd">${escapeHtml(t.error)}</div>`:""}</div>`;
+    const b=document.createElement("button"); b.className="btn sec sm"; b.style.marginTop="6px"; b.textContent="📂 Abrir carpeta del caso";
+    b.onclick=()=>api("/api/abrir",{method:"POST",body:JSON.stringify({ruta:t.carpeta})}).catch(e=>toast(e.message,"err"));
+    fin.querySelector("div:last-child").appendChild(b);
+    box.appendChild(fin);
+  }
+}
+async function seguirTrabajo(id){
+  for(;;){
+    let t; try{ t=await api("/api/trabajos/"+id); }catch(e){ await sleep(1500); continue; }
+    pintarPasos(t);
+    if(["ok","con_errores","error","cancelado"].includes(t.estado)){
+      if(t.estado==="ok") toast("Notificación completa ✓","ok"); else toast("Terminó con problemas: revisá los pasos","err");
+      try{ const h=getHist(); if(h.length){ h[0].auto=t.estado; h[0].carpeta=t.carpeta; setHist(h); } }catch(e){}
+      return t;
+    }
+    await sleep(1000);
+  }
+}
+
+/* ---------- Ajustes del agente ---------- */
+function pintarCfgAgente(){
+  const box=$("agenteCfgBox"); if(!box || !AGENTE.on) return;
+  box.style.display="";
+  if(box.dataset.armado){ return; }
+  box.dataset.armado="1";
+  const c=AUTO.cfg||{};
+  box.innerHTML=`
+    <details class="cfg" id="cfgAgDet"><summary>⚙️ Ajustes del agente</summary>
+      <label class="lab">Enviar desde (De:)</label><input type="text" id="agRem" value="${escapeHtml(c.remitente||"")}">
+      <label class="lab">Tipo de documento en GEDO</label><input type="text" id="agTipo" value="${escapeHtml(c.gedo_tipo_documento||"")}">
+      <label class="chk"><input type="checkbox" id="agFirmar" ${c.gedo_firmar?"checked":""}> Firmar el documento en GEDO (yo mismo)</label>
+      <label class="lab">Pase del expediente: repartición / sector (códigos de SADE)</label>
+      <div class="g2"><input type="text" id="agRepar" value="${escapeHtml(c.pase_reparticion||"")}"><input type="text" id="agSector" value="${escapeHtml(c.pase_sector||"")}"></div>
+      <label class="lab">Motivo del pase</label><textarea id="agMotivo" rows="2">${escapeHtml(c.pase_motivo||"")}</textarea>
+      <label class="chk"><input type="checkbox" id="agImp" ${c.imprimir?"checked":""}> Imprimir siempre el documento final</label>
+      <label class="lab">Planilla de agenda (link de Google Sheets)</label><input type="text" id="agXls" placeholder="https://docs.google.com/spreadsheets/…" value="${escapeHtml(c.agenda_excel||"")}">
+      <label class="lab">Word de seguimiento (link de Drive)</label><input type="text" id="agDoc" placeholder="https://docs.google.com/document/…" value="${escapeHtml(c.agenda_word||"")}">
+      <label class="lab">Firma del mail</label><textarea id="agFirma" rows="4">${escapeHtml(c.firma||"")}</textarea>
+      <label class="chk" style="margin-top:12px"><input type="checkbox" id="agPrueba" ${c.modo_prueba?"checked":""}> 🧪 Modo prueba (mail solo a mi correo, sin GEDO, agenda en copias)</label>
+      <label class="lab">Correo de prueba</label><input type="text" id="agCorreo" value="${escapeHtml(c.correo_prueba||"")}">
+      <div class="row"><button class="btn sm" id="agGuardar">Guardar ajustes</button></div>
+      <p class="muted" style="margin-top:8px">Las carpetas de cada caso quedan en <code>${escapeHtml((AUTO.base||"NotificadorDGRDT")+"\\casos")}</code>.</p>
+    </details>`;
+  $("agGuardar").onclick=async()=>{
+    try{
+      AUTO.cfg=await api("/api/config",{method:"POST",body:JSON.stringify({
+        remitente:$("agRem").value.trim(), gedo_tipo_documento:$("agTipo").value.trim(), gedo_firmar:$("agFirmar").checked,
+        imprimir:$("agImp").checked, agenda_excel:$("agXls").value.trim().replace(/^"|"$/g,""), agenda_word:$("agDoc").value.trim().replace(/^"|"$/g,""),
+        firma:$("agFirma").value.trim(),
+        pase_reparticion:$("agRepar").value.trim().toUpperCase(), pase_sector:$("agSector").value.trim().toUpperCase(), pase_motivo:$("agMotivo").value.trim(),
+        modo_prueba:$("agPrueba").checked, correo_prueba:$("agCorreo").value.trim() })});
+      toast("Ajustes guardados ✓","ok"); pintarSesiones();
+    }catch(e){ toast(e.message,"err"); }
+  };
+}
+if(AGENTE.on){
+  refrescarEstado();
+  setInterval(()=>{ if(!document.hidden) refrescarEstado(); }, 6000);
+  document.querySelector("header.top .sub").textContent="Subí la PV y el RE → la IA arma la notificación → el agente la envía, la sube a GEDO y la agenda.";
+}
+
 /* ---------- Historial (se guarda en este navegador) ---------- */
 function getHist(){ try{ return JSON.parse(localStorage.getItem("dgrdt_history")||"[]"); }catch(e){ return []; } }
 function setHist(h){ try{ localStorage.setItem("dgrdt_history", JSON.stringify(h.slice(0,30))); }catch(e){} renderHist(); }
@@ -868,25 +1309,31 @@ $("btnCopyAll").onclick=()=>{
   const all=tas.map(t=>t.value).join("\n\n— — — — — — — — — —\n\n");
   copiarRich(all).then(ok=>toast(ok?"Todo copiado ✓":"No se pudo copiar", ok?"ok":"err"));
 };
-$("btnNuevo").onclick=()=>{ FILES=[]; CONV=[]; renderFiles(); $("chatLog").innerHTML=""; $("cardOut").style.display="none"; { const es=$("emptyState"); if(es) es.style.display=""; const sh=$("sideHint"); if(sh) sh.style.display=""; const sp=$("sidePanel"); if(sp) sp.style.display="none"; } $("errBox").style.display="none"; };
+$("btnNuevo").onclick=()=>{ if(AUTO.corriendo){ toast("Esperá a que termine el envío en curso","err"); return; } FILES=[]; CONV=[]; LAST_OUT=null; UI={ref:null,interno:null,notifs:[]}; Object.keys(FILE_TXT).forEach(k=>{ delete FILE_TXT[k]; delete FILE_NUM[k]; }); $("validBox").innerHTML=""; $("autoBox").style.display="none"; renderFiles(); $("chatLog").innerHTML=""; $("cardOut").style.display="none"; { const es=$("emptyState"); if(es) es.style.display=""; const sh=$("sideHint"); if(sh) sh.style.display=""; const sp=$("sidePanel"); if(sp) sp.style.display="none"; } $("errBox").style.display="none"; };
 
 /* ---------- Config (clave) ---------- */
 $("btnSaveKey").onclick=()=>{
   const k=$("cfgKey").value.trim(), m=$("cfgModel").value;
   if(!k){ toast("Pegá la clave","err"); return; }
   localStorage.setItem("dgrdt_gemini_key",k);
-  localStorage.setItem("dgrdt_gemini_model",m);
+  localStorage.setItem("dgrdt_gemini_model",m||"auto");
+  if(AGENTE.on) api("/api/config",{method:"POST",body:JSON.stringify({gemini_key:k, gemini_model:m||"auto"})}).catch(()=>{});
   toast("Clave guardada ✓","ok"); $("cfgDetails").open=false;
+  descubrirModelos(true);
 };
 
 /* ---------- Arranque ---------- */
 (function init(){
-  // upgrade automático (una sola vez) del modelo viejo por defecto al 2.5
-  if(localStorage.getItem("dgrdt_gemini_model")==="gemini-2.0-flash" && !localStorage.getItem("dgrdt_m25")){
-    localStorage.setItem("dgrdt_gemini_model","gemini-2.5-flash"); localStorage.setItem("dgrdt_m25","1");
+  // migración (una sola vez): los modelos fijos viejos pasan a "Automático" (elige el mejor disponible)
+  if(!localStorage.getItem("dgrdt_mauto")){
+    const m=localStorage.getItem("dgrdt_gemini_model");
+    if(!m || /^gemini-(1\.5|2\.0|2\.5)-flash/.test(m)) localStorage.setItem("dgrdt_gemini_model","auto");
+    localStorage.setItem("dgrdt_mauto","1");
   }
   $("cfgKey").value=getKey();
   $("cfgModel").value=getModel();
+  if(!$("cfgModel").value) $("cfgModel").value="auto";
+  descubrirModelos();
   renderHist();
   $("btnClearHist").onclick=()=>{ if(confirm("¿Vaciar el historial?")) setHist([]); };
   if(!getKey()){ $("cfgDetails").open=true; }   // si no hay clave, mostrar config

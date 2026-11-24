@@ -1,5 +1,28 @@
 # 📨 Notificador DGRDT
 
+> ## 🤖 Modo automático (agente de escritorio)
+> Con el acceso directo **«Notificador DGRDT»** del escritorio se abre una ventana de Chrome propia con la
+> web del notificador. Ahí, después de generar la notificación, el botón **🚀 Notificar automáticamente** hace todo solo:
+> 1. **Outlook web**: envía el mail desde `relaciones.laborales@buenosaires.gob.ar`, con las negritas, tu firma de texto y los PDF que dicen «Se adjunta…».
+> 2. **PDF del enviado**: lo busca en «Elementos enviados» y lo imprime a PDF (mismo formato que Ctrl+P).
+> 3. **GEDO**: Inicio de Documento → `NOTIF` → referencia `NOTIF. FEHAC. …` → importa el PDF → «Firmar con Certificado» → descarga.
+> 4. **Expediente (SADE)**: busca el EX → Tramitar (o Adquirir) → vincula el IF/PV notificado y la notificación →
+>    Realizar Pase (motivo estándar, Tramitación, repartición y sector configurables: por defecto DGRDT / COLECTIVA).
+> 5. **Agenda**: fila en la planilla de audiencias (Google Sheets) y renglón en el Word de seguimiento (bajo el día de hoy).
+>
+> Los links de la planilla y del Word, la firma y el correo de prueba se cargan en **⚙️ Ajustes del agente**: quedan solo en
+> la PC (`C:\Users\<usuario>\NotificadorDGRDT\config.json`), nunca en este repositorio.
+>
+> Antes de enviar, la web **controla** lo que escribió la IA contra los PDF (emails, números, fechas, horas, link de Meet,
+> adjuntos) y **frena** si falta algo. Cada caso queda en `C:\Users\<usuario>\NotificadorDGRDT\casos\`.
+>
+> **Primera vez**: doble clic en `agente\INICIAR-NOTIFICADOR.bat` (instala todo y crea el acceso directo). En la ventana del
+> notificador iniciá sesión una vez en Outlook, GEDO y Google. **Modo prueba** (⚙️ Ajustes del agente): el mail va solo a tu
+> casilla, GEDO se saltea y la agenda se escribe en copias de prueba.
+>
+> Archivos: `agente/agente.py` (servidor local 127.0.0.1:8765) · `outlook.py` · `gedo.py` · `agenda_google.py` ·
+> `trabajos.py` (cola de pasos) · `navegador.py` (Chrome propio, puerto 9333). La carpeta `agente/` no se publica en Vercel.
+
 Herramienta simple para generar las notificaciones por email de la **Dirección General de Relaciones del Trabajo (DGRDT)** del Gobierno de la Ciudad de Buenos Aires (GCABA).
 
 **Subís la Providencia (PV) y la presentación (RE) en PDF → una IA los lee, detecta el escenario y te arma la notificación lista para Outlook** (asunto + destinatarios + cuerpo). Igual que cuando los pasás por el chat, pero como programa propio.

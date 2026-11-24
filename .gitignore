@@ -1,3 +1,5 @@
 .claude/
 __*.js
 *.spec
+__pycache__/
+*.pyc
