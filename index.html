@@ -200,7 +200,7 @@
       <input type="password" id="cfgKey" placeholder="Pegá tu clave (AIza...)" autocomplete="off" />
       <label class="lab">Modelo</label>
       <select id="cfgModel">
-        <option value="auto">Automático — el mejor disponible</option>
+        <option value="auto">Automático — el mejor que esté respondiendo</option>
         <option value="gemini-2.5-pro">gemini-2.5-pro</option>
         <option value="gemini-2.5-flash">gemini-2.5-flash</option>
       </select>
@@ -564,7 +564,8 @@ const SCHEMA = {
       cuerpo:{type:"STRING"},
       cuit:{type:"STRING"},
       documentos_a_vincular:{type:"STRING"}
-    }, required:["via","cuerpo"] } },
+    }, required:["via","para","destinatarios","cuit","documentos_a_vincular","asunto","cuerpo"],
+       propertyOrdering:["via","para","destinatarios","cuit","documentos_a_vincular","asunto","cuerpo"] } },
     texto_interno:{type:"STRING"},
     documento_notificado:{type:"STRING"},
     presentacion:{type:"STRING"},
@@ -578,7 +579,14 @@ const SCHEMA = {
     motivo:{type:"STRING"},
     notas:{type:"STRING"}
   },
-  required:["escenario","notificaciones"]
+  // Todos obligatorios ("" si no aplica): sin esto, la IA a veces omite datos que usan GEDO, el pase y la agenda.
+  // Orden: primero extrae los datos del documento y recién después redacta el mail con esos datos.
+  required:["expediente","sindicato","sigla","empresa","tipo_documento","documento_notificado","presentacion","fecha_presentacion",
+    "escenario","audiencia_fecha","audiencia_hora","modalidad","link_meet","audiencia_anterior_fecha","audiencia_anterior_hora","motivo",
+    "notificaciones","texto_interno","notas"],
+  propertyOrdering:["expediente","sindicato","sigla","empresa","tipo_documento","documento_notificado","presentacion","fecha_presentacion",
+    "escenario","audiencia_fecha","audiencia_hora","modalidad","link_meet","audiencia_anterior_fecha","audiencia_anterior_hora","motivo",
+    "notificaciones","texto_interno","notas"]
 };
 
 const ESC_LABEL = {
@@ -780,26 +788,28 @@ function revalidar(){
 
 /* ---------- Generar (llamar a Gemini) ---------- */
 $("btnGen").onclick = generar;
-// Lista de modelos a probar, de mejor a peor. Se actualiza sola con los modelos
-// que Google tenga disponibles para tu clave (siempre se elige el más nuevo y potente).
-let MODEL_FALLBACK = ["gemini-2.5-pro","gemini-2.5-flash","gemini-2.0-flash","gemini-2.0-flash-lite"];
+// Lista de modelos a probar, de mejor a peor. Se actualiza sola con los modelos que Google tenga
+// disponibles para tu clave. Orden: Flash (rápido y muy bueno) > Pro (lento, casi sin cupo gratis) >
+// Flash-Lite (el más rápido, de reserva); dentro de cada uno, el más nuevo primero.
+let MODEL_FALLBACK = ["gemini-2.5-flash","gemini-2.5-pro","gemini-2.5-flash-lite"];
 function rankModelo(id){
   const m=/^gemini-(\d+(?:\.\d+)?)-(pro|flash-lite|flash)(.*)$/.exec(String(id||""));
   if(!m) return -1;
   const resto=m[3]||"";
-  if(/tts|image|audio|live|embedding|computer|robotics|search|8b/i.test(resto)) return -1;
+  if(/tts|image|audio|live|embedding|computer|robotics|search|customtools|8b/i.test(resto)) return -1;
   const ver=parseFloat(m[1]);
-  const tier={"pro":3,"flash":2,"flash-lite":1}[m[2]]||0;
+  const tier={"flash":3,"pro":2,"flash-lite":1}[m[2]]||0;
   const estable = resto==="" ? 0.5 : (/latest/i.test(resto) ? 0.4 : (/preview|exp/i.test(resto) ? 0 : 0.2));
-  return ver*10 + tier + estable;
+  return (m[2]==="flash-lite" ? 0 : 100) + ver*10 + tier + estable;
 }
 function aplicarModelos(list){
-  if(!list||!list.length) return;
-  MODEL_FALLBACK = list.slice(0,6);
+  list=(list||[]).filter(id=>rankModelo(id)>0).sort((a,b)=>rankModelo(b)-rankModelo(a));
+  if(!list.length) return;
+  MODEL_FALLBACK = list.slice(0,12);
   const sel=$("cfgModel"), actual=getModel();
   sel.innerHTML="";
   const auto=document.createElement("option"); auto.value="auto";
-  auto.textContent="Automático — el mejor disponible ("+list[0]+")"; sel.appendChild(auto);
+  auto.textContent="Automático — el mejor que esté respondiendo"; sel.appendChild(auto);
   list.slice(0,12).forEach(id=>{ const o=document.createElement("option"); o.value=id; o.textContent=id; sel.appendChild(o); });
   sel.value=[...sel.options].some(o=>o.value===actual)?actual:"auto";
 }
@@ -819,10 +829,19 @@ async function descubrirModelos(forzar){
     if(list.length){ localStorage.setItem("dgrdt_models",JSON.stringify({t:Date.now(),list})); aplicarModelos(list); }
   }catch(e){}
 }
-// modelos que dieron "límite alcanzado" hace poco: se saltean un rato
-function _skip(){ try{ return JSON.parse(localStorage.getItem("dgrdt_skip")||"{}"); }catch(e){ return {}; } }
-function marcarSkip(m){ const s=_skip(); s[m]=Date.now(); try{ localStorage.setItem("dgrdt_skip",JSON.stringify(s)); }catch(e){} }
-function enSkip(m){ const t=_skip()[m]; return t && (Date.now()-t)<15*60e3; }
+// Salud de cada modelo (se guarda en este navegador):
+//  - pausa: hasta cuándo no usarlo (saturado, sin cupo o colgado)
+//  - ok: cuándo respondió bien por última vez (los que vienen andando se prueban primero)
+const MIN = 60e3;
+function _leerSalud(k){ try{ return JSON.parse(localStorage.getItem(k)||"{}")||{}; }catch(e){ return {}; } }
+function _guardarSalud(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function pausar(m, ms){ const s=_leerSalud("dgrdt_pausa"); s[m]=Math.max(s[m]||0, Date.now()+ms); _guardarSalud("dgrdt_pausa",s); }
+function enPausa(m){ const t=_leerSalud("dgrdt_pausa")[m]; return !!t && Date.now()<t; }
+function marcarOk(m){
+  const s=_leerSalud("dgrdt_ok"); s[m]=Date.now(); _guardarSalud("dgrdt_ok",s);
+  const p=_leerSalud("dgrdt_pausa"); if(p[m]){ delete p[m]; _guardarSalud("dgrdt_pausa",p); }
+}
+function anduvoHace(m, ms){ const t=_leerSalud("dgrdt_ok")[m]; return !!t && Date.now()-t<ms; }
 
 // Arma el contenido para la IA: manda el PDF completo (la IA lo lee tal cual, con los emails intactos).
 async function buildParts(){
@@ -835,56 +854,118 @@ async function buildParts(){
   return parts;
 }
 
-async function callGemini(model, contents){
-  const body={ system_instruction:{parts:[{text:SYSTEM_PROMPT}]}, contents,
-    generationConfig:{ temperature:0.1, response_mime_type:"application/json", response_schema:SCHEMA } };
+const ESPERA_RESPALDO = 15000;  // si el modelo no contesta en 15 s, se suma otro en paralelo
+const TOPE_MODELO = 45000;      // un modelo que tarda más que esto se da por colgado
+const TOPE_TOTAL = 120000;      // nunca se espera más de 2 minutos en total
+const SIN_AJUSTE = new Set();   // modelos que no aceptan el nivel de razonamiento pedido
+
+// Razonamiento bajo: responde varias veces más rápido y para este trabajo da el mismo resultado
+// (probado con casos reales: mismo escenario, fechas, mails y texto).
+function ajusteRazonamiento(model){
+  const m=/^gemini-(\d+(?:\.\d+)?)-(pro|flash-lite|flash)/.exec(model)||[];
+  const ver=parseFloat(m[1]||"0");
+  if(SIN_AJUSTE.has(model) || !ver) return null;
+  if(ver>=3) return {thinkingLevel:"low"};
+  if(ver>=2.5) return m[2]==="pro" ? {thinkingBudget:128} : {thinkingBudget:0};
+  return null;
+}
+
+async function callGemini(model, contents, signal){
+  const gc={ temperature:0.1, response_mime_type:"application/json", response_schema:SCHEMA };
+  const aj=ajusteRazonamiento(model); if(aj) gc.thinkingConfig=aj;
+  const body={ system_instruction:{parts:[{text:SYSTEM_PROMPT}]}, contents, generationConfig:gc };
   const url="https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent?key="+encodeURIComponent(getKey());
-  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal});
   const data=await r.json().catch(()=>({}));
   return { ok:r.ok, status:r.status, data };
 }
 
-// Ejecuta un turno con la IA usando TODA la conversación (CONV). Prueba modelos y reintenta ante el límite.
+// Un intento con un modelo. Devuelve {ok:true,out,txt} o {ok:false,tipo,msg}.
+async function probarModelo(model, signal){
+  for(let vuelta=0; vuelta<2; vuelta++){
+    let res;
+    try{ res=await callGemini(model, CONV, signal); }
+    catch(e){
+      if(signal.aborted) return {ok:false, tipo:"cancelado"};
+      const m=e.message||"";
+      return {ok:false, tipo:"red", msg:/Failed to fetch|NetworkError|ERR_/i.test(m)?"Sin conexión a internet, o la red bloquea googleapis.com.":(m||"Error de red")};
+    }
+    if(res.ok){
+      const cand=res.data.candidates&&res.data.candidates[0];
+      const parts=(cand&&cand.content&&cand.content.parts)||[];
+      const txt=parts.filter(p=>p&&p.text&&!p.thought).map(p=>p.text).join("");
+      if(!txt) return {ok:false, tipo:"vacio", msg:"La IA no devolvió texto."};
+      try{ return {ok:true, out:JSON.parse(txt), txt}; }catch(e){ return {ok:false, tipo:"vacio", msg:"Respuesta no válida de la IA."}; }
+    }
+    const msg=(res.data.error&&res.data.error.message)||("HTTP "+res.status);
+    if(/API key|API_KEY_INVALID|invalid.*key|key.*invalid/i.test(msg)) return {ok:false, tipo:"clave", msg:"La clave de Gemini no es válida. Revisala en ⚙️. Tiene que empezar con AIza…"};
+    if(res.status===400 && /thinking/i.test(msg) && !SIN_AJUSTE.has(model)){ SIN_AJUSTE.add(model); continue; } // reintenta sin el ajuste
+    if(res.status===429 || /RESOURCE_EXHAUSTED|quota/i.test(msg)){
+      pausar(model, Math.min(Math.max(parseRetryDelay(res.data), 15*MIN), 12*60*MIN));  // sin cupo: hasta que Google lo libere
+      return {ok:false, tipo:"limite", msg};
+    }
+    pausar(model, 30*MIN);   // saturado (503), no disponible (404) u otro error propio del modelo
+    return {ok:false, tipo: (res.status>=500 || /high demand|overloaded|UNAVAILABLE/i.test(msg)) ? "saturado" : "otro", msg};
+  }
+  return {ok:false, tipo:"otro", msg:"El modelo no aceptó el pedido."};
+}
+
+// Ejecuta un turno con la IA usando TODA la conversación (CONV).
+// Empieza por el mejor modelo que venga andando; si uno está saturado pasa al siguiente al instante,
+// si tarda suma otro en paralelo, y se queda con la primera respuesta buena.
 async function runTurn(onMsg){
   const chosen=getModel();
-  let models = chosen==="auto" ? MODEL_FALLBACK.slice() : [chosen, ...MODEL_FALLBACK.filter(m=>m!==chosen)];
-  const libres = models.filter(m=>!enSkip(m));
-  if(libres.length) models = libres;   // si todos están en pausa, probar igual
-  let lastDetail="";
-  for(let mi=0; mi<models.length; mi++){
-    const model=models[mi];
-    if(onMsg) onMsg(mi===0 ? "Leyendo los documentos con IA ("+model+")…" : "Probando con "+model+"…");
-    for(let attempt=0; attempt<2; attempt++){
-      let res;
-      try{ res=await callGemini(model, CONV); }
-      catch(e){ const m=e.message||""; return {ok:false, error:/Failed to fetch|NetworkError|ERR_/i.test(m)?"Sin conexión a internet, o la red bloquea googleapis.com.":(m||"Error de red")}; }
-
-      if(res.ok){
-        const cand=res.data.candidates&&res.data.candidates[0];
-        const parts=(cand&&cand.content&&cand.content.parts)||[];
-        const txt=parts.filter(p=>p&&p.text&&!p.thought).map(p=>p.text).join("");
-        if(!txt){ lastDetail="La IA no devolvió texto."; break; }
-        let out; try{ out=JSON.parse(txt); }catch(e){ lastDetail="Respuesta no válida de la IA."; break; }
-        CONV.push({ role:"model", parts:[{text:txt}] });
-        render(out);
-        return {ok:true};
-      }
-
-      const msg=(res.data.error&&res.data.error.message)||("HTTP "+res.status);
-      lastDetail=msg;
-      if(/API key|API_KEY_INVALID|invalid.*key|key.*invalid/i.test(msg)) return {ok:false, error:"La clave de Gemini no es válida. Revisala en ⚙️. Tiene que empezar con AIza…"};
-      if(res.status===429 || /RESOURCE_EXHAUSTED|quota/i.test(msg)){
-        const delay=parseRetryDelay(res.data);
-        if(attempt===0 && delay && delay<=9000){ if(onMsg) onMsg("Límite momentáneo, reintentando…"); await sleep(delay+400); continue; }
-        marcarSkip(model);
-        break; // siguiente modelo
-      }
-      if(res.status>=500){ if(attempt===0){ await sleep(1500); continue; } break; } // Google saturado: reintento / otro modelo
-      if(res.status===404 || /not found|not supported|unsupported|does not exist/i.test(msg)) break; // otro modelo
-      return {ok:false, error:msg};
-    }
+  let lista = chosen==="auto" ? MODEL_FALLBACK.slice() : [chosen, ...MODEL_FALLBACK.filter(m=>m!==chosen)];
+  const libres = lista.filter(m=>!enPausa(m));
+  if(libres.length) lista = libres;   // si todos están en pausa, probar igual
+  if(chosen==="auto"){                // primero los que respondieron bien en las últimas 24 h (mismo orden)
+    const andan = lista.filter(m=>anduvoHace(m, 24*60*MIN));
+    lista = [...andan, ...lista.filter(m=>!andan.includes(m))];
   }
-  return {ok:false, error:"Se alcanzó el límite gratuito de la IA (probé varios modelos). Suele pasar por muchas pruebas seguidas o un PDF muy grande. Esperá 1–2 minutos y reintentá."+(lastDetail?(" · Detalle: "+lastDetail.slice(0,140)):"")};
+  const t0=Date.now(), activos=new Map();
+  let idx=0, detalle="", fin=null, estadoTxt="", tRespaldo=null, tTotal=null, reloj=null;
+  const decir=t=>{ estadoTxt=t; if(onMsg) onMsg(t+"  ·  "+Math.round((Date.now()-t0)/1000)+" s"); };
+  const conDetalle=s=>s+(detalle?(" · Detalle: "+detalle.slice(0,160)):"");
+  return await new Promise(resolve=>{
+    const terminar=r=>{
+      if(fin) return; fin=r;
+      clearInterval(reloj); clearTimeout(tRespaldo); clearTimeout(tTotal);
+      for(const [m,a] of activos){ clearTimeout(a.tm); if(Date.now()-a.inicio>20000) pausar(m, 30*MIN); a.ctl.abort(); } // el lento descansa
+      activos.clear();
+      resolve(r);
+    };
+    const lanzar=(previo)=>{
+      if(fin || activos.size>=2) return;
+      if(idx>=lista.length){
+        if(!activos.size) terminar({ok:false, error:conDetalle("Ningún modelo gratuito de la IA respondió (están saturados o sin cupo). Esperá 1–2 minutos y reintentá.")});
+        return;
+      }
+      const model=lista[idx++];
+      const a={ inicio:Date.now(), ctl:new AbortController(), vencido:false };
+      a.tm=setTimeout(()=>{ a.vencido=true; a.ctl.abort(); }, TOPE_MODELO);
+      activos.set(model, a);
+      decir((typeof previo==="string" ? previo+" " : "") + (activos.size>1 ? "Sumo otro modelo en paralelo ("+model+")…" : (idx===1 ? "Leyendo los documentos con IA ("+model+")…" : "Probando con "+model+"…")));
+      clearTimeout(tRespaldo); tRespaldo=setTimeout(lanzar, ESPERA_RESPALDO);
+      probarModelo(model, a.ctl.signal).catch(e=>({ok:false, tipo:"otro", msg:String(e&&e.message||e)})).then(r=>{
+        clearTimeout(a.tm); activos.delete(model);
+        if(fin) return;
+        if(r.ok){
+          marcarOk(model);
+          CONV.push({ role:"model", parts:[{text:r.txt}] });
+          try{ render(r.out); }catch(e){ console.error(e); terminar({ok:false, error:"No se pudo mostrar la notificación: "+(e.message||e)}); return; }
+          terminar({ok:true, model, segundos:Math.round((Date.now()-t0)/1000)});
+          return;
+        }
+        if(r.tipo==="clave" || r.tipo==="red"){ terminar({ok:false, error:r.msg}); return; }
+        if(r.tipo==="cancelado" && a.vencido){ pausar(model, 30*MIN); r.msg="no respondió en "+(TOPE_MODELO/1000)+" s"; }
+        detalle=model+": "+(r.msg||r.tipo);
+        lanzar(r.tipo==="saturado" ? model+" está saturado." : (r.tipo==="limite" ? model+" sin cupo gratis." : ""));
+      });
+    };
+    tTotal=setTimeout(()=>terminar({ok:false, error:conDetalle("La IA no respondió a tiempo (Google está muy cargado). Reintentá en un momento.")}), TOPE_TOTAL);
+    reloj=setInterval(()=>{ if(estadoTxt) decir(estadoTxt); }, 1000);
+    lanzar();
+  });
 }
 
 async function generar(){
@@ -898,7 +979,7 @@ async function generar(){
     CONV=[{ role:"user", parts: await buildParts() }];
     const r=await runTurn(t=>{ $("loaderTxt").textContent=t; });
     if(!r.ok){ CONV=[]; $("errBox").innerHTML="⚠️ "+escapeHtml(r.error); $("errBox").style.display="block"; }
-    else pushHist(LAST_OUT);
+    else { pushHist(LAST_OUT); toast("Leído en "+r.segundos+" s ("+r.model+")","ok"); }
   }catch(e){
     CONV=[]; $("errBox").textContent="⚠️ "+(e.message||e); $("errBox").style.display="block";
   }finally{
