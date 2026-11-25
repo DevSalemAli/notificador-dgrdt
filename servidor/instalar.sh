@@ -32,7 +32,7 @@ sudo apt-get update -y -q
 sudo apt-get install -y -q --no-install-recommends \
   git python3-venv python3-pip xvfb x11vnc openbox novnc websockify caddy \
   fonts-liberation fonts-dejavu-core fonts-noto-core fonts-noto-color-emoji \
-  locales iptables-persistent netfilter-persistent ca-certificates curl
+  locales iptables-persistent netfilter-persistent ca-certificates curl libatomic1
 sudo locale-gen es_AR.UTF-8 >/dev/null
 # Chromium necesita espacios de nombres sin privilegios para su "sandbox" (Ubuntu 24.04 los restringe)
 echo "kernel.apparmor_restrict_unprivileged_userns=0" | sudo tee /etc/sysctl.d/60-notificador.conf >/dev/null
