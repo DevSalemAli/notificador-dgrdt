@@ -23,6 +23,9 @@ DEFAULTS = {
     "pase_sector": "COLECTIVA",     # código del sector (se elige de la lista de la lupa)
     # Impresión física (además del PDF)
     "imprimir": False,
+    # Navegador de la ventana del notificador: auto (Chrome → Edge → Chromium propio), chrome, edge o chromium
+    "navegador": "auto",
+    "navegador_usado": "",
     # Agenda: link de Google (o ruta de un archivo de Office en la PC). Vacío = no agendar.
     # Los links reales se cargan en ⚙️ Ajustes del agente (quedan solo en esta PC, no en el código).
     "agenda_excel": "",

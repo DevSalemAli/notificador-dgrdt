@@ -15,6 +15,7 @@ import re
 import secrets
 import sys
 import threading
+import time
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -29,7 +30,7 @@ import trabajos    # noqa: E402
 from rutas import BASE, CASOS  # noqa: E402
 
 PUERTO = 8765
-VERSION = "1.2"
+VERSION = "1.3"
 
 
 def _token_persistente():
@@ -50,7 +51,30 @@ def _token_persistente():
 
 TOKEN = _token_persistente()
 INDEX = os.path.join(os.path.dirname(AQUI), "index.html")
-HOSTS_OK = {f"127.0.0.1:{PUERTO}", f"localhost:{PUERTO}"}
+# En un servidor en la nube el agente se usa por HTTPS con su nombre público (NOTIFICADOR_HOSTS).
+HOSTS_REMOTOS = {h.strip().lower() for h in os.environ.get("NOTIFICADOR_HOSTS", "").split(",") if h.strip()}
+HOSTS_OK = {f"127.0.0.1:{PUERTO}", f"localhost:{PUERTO}"} | HOSTS_REMOTOS
+WEB_OFICIAL = "https://notificador-dgrdt.vercel.app"
+
+
+def _clave_remota():
+    """Clave para entrar al agente desde internet (solo existe en el servidor)."""
+    try:
+        with open(os.path.join(BASE, "clave_remota.txt"), "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+
+_FALLAS = []            # horarios de claves incorrectas (para frenar a quien pruebe claves)
+_FALLAS_LOCK = threading.Lock()
+
+
+def _bloqueado():
+    with _FALLAS_LOCK:
+        ahora = time.time()
+        _FALLAS[:] = [x for x in _FALLAS if ahora - x < 600]
+        return len(_FALLAS) >= 5
 # Páginas web que pueden usar este agente desde el navegador (además de la que sirve él mismo).
 # El navegador manda el encabezado Origin y una página no lo puede falsificar.
 ORIGENES_WEB = {"https://notificador-dgrdt.vercel.app"} | {
@@ -115,7 +139,11 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _host_ok(self):
-        return self.headers.get("Host", "") in HOSTS_OK
+        return (self.headers.get("Host", "") or "").lower() in HOSTS_OK
+
+    def _es_remoto(self):
+        """Pedido que llega desde internet (por el proxy HTTPS del servidor), no desde esta máquina."""
+        return bool(self.headers.get("X-Forwarded-For")) or (self.headers.get("Host", "") or "").lower() in HOSTS_REMOTOS
 
     def _token_ok(self, query=None):
         tok = self.headers.get("X-Agente-Token", "")
@@ -152,10 +180,23 @@ class Handler(BaseHTTPRequestHandler):
         ruta = url.path
 
         if ruta == "/api/emparejar":
-            # la web publicada pide el token: solo se lo damos a las páginas permitidas
-            if not self._origen():
+            # la web publicada pide el token: solo se lo damos a las páginas permitidas.
+            # Desde internet NO (fuera del navegador el Origin se puede falsificar): ahí se entra con la clave.
+            if self._es_remoto() or not self._origen():
                 return self._json({"error": "origen no permitido"}, 403)
             return self._json({"ok": True, "token": TOKEN, "version": VERSION})
+
+        if ruta in ("/", "/index.html") and self._es_remoto():
+            # en el servidor la página no lleva el token: se usa desde la web oficial con la clave
+            data = (f'<!doctype html><meta charset="utf-8"><title>Agente Notificador DGRDT</title>'
+                    f'<p style="font-family:sans-serif">Este es el agente del Notificador DGRDT en la nube. '
+                    f'Usalo desde <a href="{WEB_OFICIAL}">{WEB_OFICIAL}</a> → «Conectar con el agente en la nube».</p>').encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
 
         if ruta in ("/", "/index.html"):
             with open(INDEX, "r", encoding="utf-8") as f:
@@ -177,7 +218,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "token inválido"}, 401)
 
         if ruta == "/api/estado":
-            return self._json({"ok": True, "version": VERSION, "base": BASE, **estado_sesiones(), "config": config.cargar()})
+            return self._json({"ok": True, "version": VERSION, "base": BASE, "remoto": self._es_remoto(),
+                               "windows": os.name == "nt", **estado_sesiones(), "config": config.cargar()})
         if ruta == "/api/config":
             return self._json(config.cargar())
         if ruta == "/api/trabajos":
@@ -207,9 +249,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._host_ok():
             return self._json({"error": "host no permitido"}, 403)
+        ruta = urllib.parse.urlparse(self.path).path
+        if ruta == "/api/remoto/entrar":
+            return self._entrar_remoto()
         if not self._token_ok():
             return self._json({"error": "token inválido"}, 401)
-        ruta = urllib.parse.urlparse(self.path).path
         try:
             body = self._body()
         except Exception:
@@ -233,6 +277,8 @@ class Handler(BaseHTTPRequestHandler):
                 t.cancelar = True
             return self._json({"ok": bool(t)})
         if ruta == "/api/abrir":
+            if os.name != "nt" or self._es_remoto():
+                return self._json({"error": "Abrir carpetas solo funciona en la PC donde corre el agente"}, 501)
             p = body.get("ruta") or ""
             if p and _dentro_de_casos(p) and os.path.exists(p):
                 os.startfile(p)
@@ -250,6 +296,26 @@ class Handler(BaseHTTPRequestHandler):
                     navegador.abrir_url(navegador.URL_GEDO)
             return self._json({"ok": True})
         return self._json({"error": "no encontrado"}, 404)
+
+    def _entrar_remoto(self):
+        """La web oficial entra al agente de la nube con la clave y recibe el token."""
+        if not self._origen():
+            return self._json({"error": "origen no permitido"}, 403)
+        clave = _clave_remota()
+        if not clave:
+            return self._json({"error": "Este agente no tiene acceso desde internet"}, 404)
+        if _bloqueado():
+            return self._json({"error": "Demasiados intentos con clave incorrecta: esperá 10 minutos"}, 429)
+        try:
+            dada = str(self._body().get("clave") or "").strip()
+        except Exception:
+            dada = ""
+        if dada and secrets.compare_digest(dada.encode("utf-8"), clave.encode("utf-8")):
+            return self._json({"ok": True, "token": TOKEN, "version": VERSION})
+        with _FALLAS_LOCK:
+            _FALLAS.append(time.time())
+        time.sleep(1)
+        return self._json({"error": "Clave incorrecta"}, 401)
 
 
 def _ya_corriendo():

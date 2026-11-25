@@ -150,6 +150,10 @@
   .pasoI.esperando{border-color:var(--warn-bd);background:var(--warn-bg)}
   .pasoI a{font-size:12px}
   .pasoI > div:last-child{flex:1;min-width:0}
+  .nube{display:flex;flex-direction:column;gap:7px;padding:10px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface-2)}
+  .nube .tt{font-weight:600;font-size:13px;color:var(--text)}
+  .nube input{width:100%;box-sizing:border-box;font-family:inherit;font-size:13px}
+  .remota{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 9px;font-size:12px}
   .pregunta{margin-top:7px;display:flex;flex-direction:column;gap:7px}
   .pregunta input{width:100%;box-sizing:border-box;font-family:inherit;font-size:13px}
   .pregunta .row{display:flex;gap:6px;flex-wrap:wrap;margin:0}
@@ -1179,7 +1183,26 @@ function abrirOWA(n){
 // Abierta por el agente: trae el token en un <meta>. Abierta desde la web publicada: se conecta al
 // agente de esta PC (http://127.0.0.1:8765), que solo le da el token a la página oficial.
 const AGENTE_URL = "http://127.0.0.1:8765";
-const AGENTE = (()=>{ const m=document.querySelector('meta[name="agente-token"]'); return { on:!!m, token:m?m.content:"", base:"" }; })();
+const AGENTE = (()=>{ const m=document.querySelector('meta[name="agente-token"]'); return { on:!!m, token:m?m.content:"", base:"", remoto:false }; })();
+const NUBE_KEY = "dgrdt_agente_nube";
+function leerNube(){ try{ return JSON.parse(localStorage.getItem(NUBE_KEY)||"null")||null; }catch(e){ return null; } }
+// Ventana remota (noVNC) del servidor: para iniciar sesión en Outlook, GEDO, SADE y Google.
+const ventanaRemota = () => AGENTE.base+"/vnc/vnc.html?autoconnect=1&resize=scale&reconnect=1&path=vnc/websockify";
+function usarNube(url, token){ AGENTE.on=true; AGENTE.remoto=true; AGENTE.base=url; AGENTE.token=token; iniciarAgente(); }
+async function conectarNube(url, clave){
+  url=(url||"").trim().replace(/\/+$/,"");
+  if(!/^https:\/\/[^\s\/]+$/i.test(url)) return {ok:false, error:"La dirección tiene que empezar con https:// (por ejemplo https://1-2-3-4.sslip.io)."};
+  if(!clave) return {ok:false, error:"Falta la clave del agente."};
+  try{
+    const r=await fetch(url+"/api/remoto/entrar",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({clave}), cache:"no-store" });
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok || !j.token) return {ok:false, error:j.error||("El servidor respondió "+r.status)};
+    try{ localStorage.setItem(NUBE_KEY, JSON.stringify({url, token:j.token})); }catch(e){}
+    usarNube(url, j.token);
+    return {ok:true};
+  }catch(e){ return {ok:false, error:"No pude conectarme a "+url+" (¿está prendido el servidor? ¿la dirección es correcta?)."}; }
+}
+function desconectarNube(){ try{ localStorage.removeItem(NUBE_KEY); }catch(e){} location.reload(); }
 const AUTO = { corriendo:false, cfg:null, ses:{}, tid:null };
 let AGENTE_INI = false;
 async function api(path, opts){
@@ -1215,11 +1238,28 @@ async function conectarAgente(espera){
   finally{ clearTimeout(to); }
 }
 function renderConectar(box){
+  const nube=leerNube()||{};
   box.innerHTML=`
     <h3>🤖 Notificar automáticamente</h3>
-    <p class="muted" style="margin:0 0 9px;font-size:12.5px">Lo hace el agente <b>«Notificador DGRDT»</b> de esta PC: envía el mail desde Outlook web, firma en GEDO, vincula y hace el pase, y agenda.</p>
-    <button class="btn go" id="btnConectar">🔌 Conectar con el agente de esta PC</button>
+    <p class="muted" style="margin:0 0 9px;font-size:12.5px">Lo hace el agente <b>«Notificador DGRDT»</b>: envía el mail desde Outlook web, firma en GEDO, vincula y hace el pase, y agenda.</p>
+    <div class="nube">
+      <div class="tt">☁️ Agente en la nube</div>
+      <input type="text" id="nubeUrl" placeholder="Dirección: https://…sslip.io" value="${escapeHtml(nube.url||"")}" spellcheck="false">
+      <input type="password" id="nubeClave" placeholder="Clave del agente" autocomplete="current-password">
+      <button class="btn go" id="btnNube">☁️ Conectar con el agente en la nube</button>
+    </div>
+    <div class="muted" style="margin:10px 0 6px;font-size:12px">o, si el agente está instalado en esta PC:</div>
+    <button class="btn sec" id="btnConectar">🔌 Conectar con el agente de esta PC</button>
     <div class="muted" id="conMsg" style="margin-top:7px;font-size:12px"></div>`;
+  const irNube=async()=>{
+    const b=$("btnNube"), m=$("conMsg");
+    b.disabled=true; b.textContent="⏳ Conectando…"; m.textContent="";
+    const r=await conectarNube($("nubeUrl").value, $("nubeClave").value);
+    if(r.ok){ toast("Conectado con el agente en la nube ✓","ok"); renderAuto(); return; }
+    b.disabled=false; b.textContent="☁️ Conectar con el agente en la nube"; m.textContent=r.error;
+  };
+  $("btnNube").onclick=irNube;
+  $("nubeClave").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); irNube(); } });
   $("btnConectar").onclick=async()=>{
     const b=$("btnConectar"), m=$("conMsg");
     b.disabled=true; b.textContent="⏳ Buscando el agente…";
@@ -1258,10 +1298,15 @@ async function refrescarEstado(){
 function pintarSesiones(){
   const b=$("sesBox"); if(!b) return;
   const s=AUTO.ses||{};
-  if(s.caido){ b.innerHTML='<span class="s no">⚠️ El agente no responde — abrí «Notificador DGRDT» del escritorio</span>'; return; }
+  if(s.caido){ b.innerHTML='<span class="s no">⚠️ '+(AGENTE.remoto?"El agente en la nube no responde (¿servidor apagado o sin internet?)":"El agente no responde — abrí «Notificador DGRDT» del escritorio")+'</span>'; return; }
   const pill=(ok,txt,falta)=>`<span class="s ${ok?"ok":"no"}" ${ok?"":'data-login="1"'} title="${ok?"":"Clic para abrir la ventana e iniciar sesión"}">${ok?"✓ "+txt:"⚠️ "+falta}</span>`;
   b.innerHTML=pill(s.outlook,"Outlook","Outlook: iniciá sesión")+pill(s.gedo,"GEDO","GEDO: iniciá sesión");
-  b.querySelectorAll('[data-login]').forEach(el=>el.onclick=()=>api("/api/navegador",{method:"POST",body:"{}"}).then(()=>toast("Iniciá sesión en las pestañas de Outlook y GEDO","ok")).catch(e=>toast(e.message,"err")));
+  b.querySelectorAll('[data-login]').forEach(el=>el.onclick=()=>{
+    if(AGENTE.remoto) window.open(ventanaRemota(),"_blank","noopener");   // se ve la ventana del servidor
+    api("/api/navegador",{method:"POST",body:"{}"})
+      .then(()=>toast(AGENTE.remoto?"En la ventana remota, iniciá sesión en Outlook y GEDO":"Iniciá sesión en las pestañas de Outlook y GEDO","ok"))
+      .catch(e=>toast(e.message,"err"));
+  });
   const cfg=AUTO.cfg||{};
   const lx=$("lExcel"), lw=$("lWord");
   if(lx){ const ok=!!cfg.agenda_excel; lx.classList.toggle("dis",!ok); $("pExcel").disabled=!ok; if(!ok) $("pExcel").checked=false; lx.title=ok?cfg.agenda_excel:"Configurá el Excel de agenda en ⚙️ Ajustes del agente"; }
@@ -1279,6 +1324,7 @@ function renderAuto(){
   box.innerHTML=`
     <h3>🤖 Notificar automáticamente</h3>
     <div class="sesion" id="sesBox"></div>
+    ${AGENTE.remoto?`<div class="remota"><a class="btn sec sm" href="${escapeHtml(ventanaRemota())}" target="_blank" rel="noopener">🖥️ Ventana remota</a><span class="muted">☁️ Agente en la nube · para iniciar sesión, usá la ventana remota · <a href="#" id="lnkDesc">desconectar</a></span></div>`:""}
     <label class="chk"><input type="checkbox" id="pMail" ${hayMail?"checked":"disabled"}> Enviar el mail desde Outlook web</label>
     <label class="chk"><input type="checkbox" id="pPdf" checked> Guardar el PDF del mail enviado</label>
     <label class="chk"><input type="checkbox" id="pGedo" checked> GEDO: Notificación fehaciente (firmar y descargar)</label>
@@ -1294,6 +1340,7 @@ function renderAuto(){
   $("pMail").onchange=encadenar; $("pPdf").onchange=encadenar; $("pGedo").onchange=encadenar;
   if(AUTO.cfg && AUTO.cfg.vincular===false) $("pVinc").checked=false;
   $("btnAuto").onclick=lanzarAuto;
+  if($("lnkDesc")) $("lnkDesc").onclick=e=>{ e.preventDefault(); if(confirm("¿Desconectar este navegador del agente en la nube? (después hay que volver a poner la clave)")) desconectarNube(); };
   if(AUTO.cfg && AUTO.cfg.imprimir) $("pImp").checked=true;
   pintarSesiones(); revalidar(); refrescarEstado();
 }
@@ -1324,6 +1371,7 @@ async function lanzarAuto(){
   const faltaOutlook = !AUTO.ses.outlook && $("pMail").checked;
   const faltaGedo = !AUTO.ses.gedo && $("pGedo").checked && !$("pGedo").disabled;
   if(faltaOutlook || faltaGedo){
+    if(AGENTE.remoto) window.open(ventanaRemota(),"_blank","noopener");
     api("/api/navegador",{method:"POST",body:"{}"}).catch(()=>{});
     toast("Abrí la ventana del notificador: iniciá sesión en "+[faltaOutlook&&"Outlook",faltaGedo&&"GEDO"].filter(Boolean).join(" y ")+". Cuando el aviso quede en verde, tocá 🚀 de nuevo.","err");
     return;
@@ -1368,9 +1416,11 @@ function pintarPasos(t){
   if(["ok","con_errores","error","cancelado"].includes(t.estado)){
     const fin=document.createElement("div"); fin.className="pasoI "+(t.estado==="ok"?"ok":"error");
     fin.innerHTML=`<div class="ico">${t.estado==="ok"?"🎉":"⚠️"}</div><div><div class="tt">${t.estado==="ok"?"¡Listo! Notificación completa.":"Terminó con problemas"}</div>${t.error?`<div class="dd">${escapeHtml(t.error)}</div>`:""}</div>`;
-    const b=document.createElement("button"); b.className="btn sec sm"; b.style.marginTop="6px"; b.textContent="📂 Abrir carpeta del caso";
-    b.onclick=()=>api("/api/abrir",{method:"POST",body:JSON.stringify({ruta:t.carpeta})}).catch(e=>toast(e.message,"err"));
-    fin.querySelector("div:last-child").appendChild(b);
+    if(!AGENTE.remoto){   // en la nube no hay carpeta que abrir: los PDF están en los links de cada paso
+      const b=document.createElement("button"); b.className="btn sec sm"; b.style.marginTop="6px"; b.textContent="📂 Abrir carpeta del caso";
+      b.onclick=()=>api("/api/abrir",{method:"POST",body:JSON.stringify({ruta:t.carpeta})}).catch(e=>toast(e.message,"err"));
+      fin.querySelector("div:last-child").appendChild(b);
+    }
     box.appendChild(fin);
   }
 }
@@ -1450,9 +1500,20 @@ function pintarCfgAgente(){
 }
 if(AGENTE.on) iniciarAgente();
 else {
-  // si en este navegador ya se conectó alguna vez (permiso dado), se reconecta solo y en silencio
-  let antes=false; try{ antes=localStorage.getItem("dgrdt_agente_ok")==="1"; }catch(e){}
-  if(antes) conectarAgente(4000).then(ok=>{ if(ok) renderAuto(); });
+  const nube=leerNube();
+  if(nube && nube.url && nube.token){
+    // agente en la nube guardado en este navegador: se reconecta solo
+    fetch(nube.url+"/api/estado",{ headers:{"X-Agente-Token":nube.token}, cache:"no-store" })
+      .then(r=>{
+        if(r.ok){ usarNube(nube.url, nube.token); renderAuto(); }
+        else if(r.status===401){ try{ localStorage.setItem(NUBE_KEY, JSON.stringify({url:nube.url})); }catch(e){} }  // clave cambiada: pedirla de nuevo
+      })
+      .catch(()=>{});
+  } else {
+    // si en este navegador ya se conectó alguna vez al agente de la PC (permiso dado), se reconecta solo
+    let antes=false; try{ antes=localStorage.getItem("dgrdt_agente_ok")==="1"; }catch(e){}
+    if(antes) conectarAgente(4000).then(ok=>{ if(ok) renderAuto(); });
+  }
 }
 
 /* ---------- Historial (se guarda en este navegador) ---------- */

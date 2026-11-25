@@ -14,6 +14,12 @@
 > acta lo trae mal escrito), el paso queda en ✋ y la web pide el número correcto: se corrige en el mail, la agenda y SADE,
 > y la notificación sigue sola. También se puede elegir «Seguir sin SADE» y hacer la vinculación y el pase a mano.
 >
+> **☁️ Agente en la nube** (para usarlo desde una PC donde no se puede instalar nada, como la del trabajo): el agente
+> corre en un servidor gratis (Oracle Cloud «Always Free», Ubuntu) instalado con `servidor/instalar.sh`. En la web,
+> después de generar: **☁️ Conectar con el agente en la nube** → dirección (`https://…sslip.io`) + clave (una vez por
+> navegador). Para iniciar sesión en Outlook, GEDO, SADE y Google se usa **🖥️ Ventana remota** (la pantalla del servidor
+> en el navegador, protegida con la misma clave). La clave y las sesiones quedan solo en el servidor.
+>
 > **También desde la web publicada** (notificador-dgrdt.vercel.app): con el agente abierto en la PC, después de generar
 > aparece **🔌 Conectar con el agente de esta PC**. La primera vez el navegador pide permiso para acceder a apps del equipo
 > (tocá «Permitir»); después se conecta solo. El agente le da acceso únicamente a esa web oficial.

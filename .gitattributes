@@ -1,0 +1,2 @@
+# scripts del servidor Linux: siempre con saltos de línea LF
+*.sh text eol=lf

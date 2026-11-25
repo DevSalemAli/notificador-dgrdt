@@ -399,6 +399,9 @@ def _ejecutar(t, pw_estado):
                            f" · pase a {cfg.get('pase_reparticion')} / {cfg.get('pase_sector')}")
             elif tipo == "imprimir":
                 docs = finales or [x.get("pdf") for x in estado_mail.values() if x.get("pdf")]
+                if os.name != "nt":
+                    t.set_paso(p, "omitido", "El agente está en la nube: imprimí los PDF desde los links de cada paso")
+                    continue
                 if not docs:
                     t.set_paso(p, "omitido", "No hay documentos para imprimir")
                     continue
