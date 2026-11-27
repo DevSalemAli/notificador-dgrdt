@@ -94,12 +94,28 @@ def pestanias():
     return _ejecutar(f)
 
 
+def _a_jpeg(png, calidad, ancho_max=1400):
+    """PNG → JPEG liviano (con Pillow). OJO: no se le pide JPEG al navegador porque el Chromium
+    para ARM del servidor arma esas imágenes rotas; en PNG salen bien."""
+    try:
+        import io
+        from PIL import Image
+        im = Image.open(io.BytesIO(png)).convert("RGB")
+        if im.width > ancho_max:
+            im = im.resize((ancho_max, round(im.height * ancho_max / im.width)), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=max(20, min(int(calidad), 85)), optimize=True)
+        return buf.getvalue(), "image/jpeg"
+    except Exception:
+        return png, "image/png"
+
+
 def captura(tid, calidad=55):
     def f(ctx):
         pg = _pagina(ctx, tid)
         ancho, alto = pg.evaluate("() => [window.innerWidth, window.innerHeight]")
-        img = pg.screenshot(type="jpeg", quality=max(20, min(int(calidad), 85)), timeout=20000)
-        return {"img": img, "ancho": ancho, "alto": alto}
+        img, tipo = _a_jpeg(pg.screenshot(type="png", timeout=20000), calidad)
+        return {"img": img, "tipo": tipo, "ancho": ancho, "alto": alto}
     return _ejecutar(f)
 
 

@@ -45,7 +45,7 @@ echo "== 3/8 Python y librerías"
 mkdir -p "$BASE"
 [ -x "$VENV/bin/python" ] || python3 -m venv "$VENV"
 "$VENV/bin/pip" install -q --upgrade pip
-"$VENV/bin/pip" install -q playwright==1.65.2 python-docx==1.2.0 openpyxl==3.1.5 pypdf==7.1.1
+"$VENV/bin/pip" install -q playwright==1.65.2 python-docx==1.2.0 openpyxl==3.1.5 pypdf==7.1.1 pillow
 
 echo "== 4/8 Navegador (Chromium) y lo que necesita"
 "$VENV/bin/python" -m playwright install chromium
@@ -87,7 +87,10 @@ servicio notificador-novnc "ventana remota por web (solo local)" "notificador-vn
 servicio notificador-agente "agente" "notificador-ventanas.service" \
   "$VENV/bin/python $APP/agente/agente.py --sin-web --log" \
   "Environment=NOTIFICADOR_HOSTS=$HOST
-Environment=PYTHONUNBUFFERED=1"
+Environment=PYTHONUNBUFFERED=1
+KillMode=process"
+# KillMode=process: al reiniciar el agente (por ejemplo al actualizarlo) el navegador sigue abierto
+# y no se pierden las sesiones de GEDO/SADE.
 
 # HTTPS (certificado automático) + ventana remota protegida con la clave
 sudo tee /etc/caddy/Caddyfile >/dev/null <<EOF

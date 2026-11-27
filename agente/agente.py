@@ -236,7 +236,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
             self.send_response(200)
-            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Type", c.get("tipo") or "image/jpeg")
             self.send_header("Content-Length", str(len(c["img"])))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Ancho", str(c["ancho"]))
