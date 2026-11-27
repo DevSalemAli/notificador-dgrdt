@@ -30,7 +30,7 @@ import trabajos    # noqa: E402
 from rutas import BASE, CASOS  # noqa: E402
 
 PUERTO = 8765
-VERSION = "1.3"
+VERSION = "1.4"
 
 
 def _token_persistente():
@@ -222,6 +222,30 @@ class Handler(BaseHTTPRequestHandler):
                                "windows": os.name == "nt", **estado_sesiones(), "config": config.cargar()})
         if ruta == "/api/config":
             return self._json(config.cargar())
+        if ruta == "/api/vista/pestanias":
+            import vista
+            try:
+                return self._json(vista.pestanias())
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+        if ruta == "/api/vista/captura":
+            import vista
+            q = urllib.parse.parse_qs(url.query)
+            try:
+                c = vista.captura((q.get("id") or [""])[0], int((q.get("q") or ["55"])[0]))
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(c["img"])))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Ancho", str(c["ancho"]))
+            self.send_header("X-Alto", str(c["alto"]))
+            self.send_header("Access-Control-Expose-Headers", "X-Ancho, X-Alto")
+            self._cors()
+            self.end_headers()
+            self.wfile.write(c["img"])
+            return
         if ruta == "/api/trabajos":
             return self._json(trabajos.listar())
         if ruta.startswith("/api/trabajos/"):
@@ -261,6 +285,12 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta == "/api/config":
             return self._json(config.guardar(body))
+        if ruta == "/api/vista/accion":
+            import vista
+            try:
+                return self._json({"ok": bool(vista.accion(str(body.get("id") or ""), body))})
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
         if ruta == "/api/trabajos":
             if not (body.get("notificaciones") or []):
                 return self._json({"error": "no hay notificaciones"}, 400)

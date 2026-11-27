@@ -154,6 +154,16 @@
   .nube .tt{font-weight:600;font-size:13px;color:var(--text)}
   .nube input{width:100%;box-sizing:border-box;font-family:inherit;font-size:13px}
   .remota{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 9px;font-size:12px}
+  .vista-fondo{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:1000;padding:12px}
+  .vista{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r);width:min(1240px,100%);max-height:100%;display:flex;flex-direction:column;gap:8px;padding:10px;overflow:auto}
+  .vista-barra,.vista-teclado{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .vista-barra select{max-width:300px}
+  .vista-barra input,.vista-teclado input[type=password],.vista-teclado input[type=text]{flex:1;min-width:160px;font-family:inherit;font-size:13px}
+  .vista-pantalla{position:relative;background:#000;border-radius:var(--r-sm);overflow:hidden;min-height:220px}
+  .vista-pantalla img{display:block;width:100%;height:auto;cursor:crosshair;user-select:none}
+  .vista-estado{position:absolute;top:8px;right:10px;color:#fff;background:rgba(0,0,0,.6);padding:2px 9px;border-radius:6px;font-size:12px}
+  .vista-estado:empty{display:none}
+  .vista-ayuda{font-size:12px}
   .pregunta{margin-top:7px;display:flex;flex-direction:column;gap:7px}
   .pregunta input{width:100%;box-sizing:border-box;font-family:inherit;font-size:13px}
   .pregunta .row{display:flex;gap:6px;flex-wrap:wrap;margin:0}
@@ -1185,13 +1195,20 @@ function abrirOWA(n){
 const AGENTE_URL = "http://127.0.0.1:8765";
 const AGENTE = (()=>{ const m=document.querySelector('meta[name="agente-token"]'); return { on:!!m, token:m?m.content:"", base:"", remoto:false }; })();
 const NUBE_KEY = "dgrdt_agente_nube";
-function leerNube(){ try{ return JSON.parse(localStorage.getItem(NUBE_KEY)||"null")||null; }catch(e){ return null; } }
-// Ventana remota (noVNC) del servidor: para iniciar sesión en Outlook, GEDO, SADE y Google.
+// Desde la web publicada, el agente en la nube se usa a través de la misma dirección (Vercel reenvía
+// /nube al servidor): así funciona aunque la red de la oficina bloquee la dirección del servidor.
+const NUBE_POR_DEFECTO = location.protocol==="https:" ? location.origin+"/nube" : "";
+function leerNube(){
+  let n=null; try{ n=JSON.parse(localStorage.getItem(NUBE_KEY)||"null")||null; }catch(e){}
+  if(n && n.url && /sslip\.io/i.test(n.url) && NUBE_POR_DEFECTO) n.url=NUBE_POR_DEFECTO;   // dirección vieja → la nueva
+  return n;
+}
+// Ventana remota completa (noVNC): solo entrando directo al servidor (no pasa por Vercel).
 const ventanaRemota = () => AGENTE.base+"/vnc/vnc.html?autoconnect=1&resize=scale&reconnect=1&path=vnc/websockify";
 function usarNube(url, token){ AGENTE.on=true; AGENTE.remoto=true; AGENTE.base=url; AGENTE.token=token; iniciarAgente(); }
 async function conectarNube(url, clave){
-  url=(url||"").trim().replace(/\/+$/,"");
-  if(!/^https:\/\/[^\s\/]+$/i.test(url)) return {ok:false, error:"La dirección tiene que empezar con https:// (por ejemplo https://1-2-3-4.sslip.io)."};
+  url=(url||"").trim().replace(/\/+$/,"") || NUBE_POR_DEFECTO;
+  if(!/^https:\/\/[^\s\/]+(\/[^\s]*)?$/i.test(url)) return {ok:false, error:"La dirección tiene que empezar con https://"};
   if(!clave) return {ok:false, error:"Falta la clave del agente."};
   try{
     const r=await fetch(url+"/api/remoto/entrar",{ method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({clave}), cache:"no-store" });
@@ -1244,9 +1261,11 @@ function renderConectar(box){
     <p class="muted" style="margin:0 0 9px;font-size:12.5px">Lo hace el agente <b>«Notificador DGRDT»</b>: envía el mail desde Outlook web, firma en GEDO, vincula y hace el pase, y agenda.</p>
     <div class="nube">
       <div class="tt">☁️ Agente en la nube</div>
-      <input type="text" id="nubeUrl" placeholder="Dirección: https://…sslip.io" value="${escapeHtml(nube.url||"")}" spellcheck="false">
       <input type="password" id="nubeClave" placeholder="Clave del agente" autocomplete="current-password">
       <button class="btn go" id="btnNube">☁️ Conectar con el agente en la nube</button>
+      <details class="muted" style="font-size:12px"${NUBE_POR_DEFECTO?"":" open"}><summary>Otra dirección</summary>
+        <input type="text" id="nubeUrl" placeholder="${escapeHtml(NUBE_POR_DEFECTO||"https://…")} (vacío = la de siempre)" value="${escapeHtml(nube.url && nube.url!==NUBE_POR_DEFECTO ? nube.url : "")}" spellcheck="false" style="margin-top:6px">
+      </details>
     </div>
     <div class="muted" style="margin:10px 0 6px;font-size:12px">o, si el agente está instalado en esta PC:</div>
     <button class="btn sec" id="btnConectar">🔌 Conectar con el agente de esta PC</button>
@@ -1302,7 +1321,7 @@ function pintarSesiones(){
   const pill=(ok,txt,falta)=>`<span class="s ${ok?"ok":"no"}" ${ok?"":'data-login="1"'} title="${ok?"":"Clic para abrir la ventana e iniciar sesión"}">${ok?"✓ "+txt:"⚠️ "+falta}</span>`;
   b.innerHTML=pill(s.outlook,"Outlook","Outlook: iniciá sesión")+pill(s.gedo,"GEDO","GEDO: iniciá sesión");
   b.querySelectorAll('[data-login]').forEach(el=>el.onclick=()=>{
-    if(AGENTE.remoto) window.open(ventanaRemota(),"_blank","noopener");   // se ve la ventana del servidor
+    if(AGENTE.remoto) abrirVista();   // se ve la ventana del servidor
     api("/api/navegador",{method:"POST",body:"{}"})
       .then(()=>toast(AGENTE.remoto?"En la ventana remota, iniciá sesión en Outlook y GEDO":"Iniciá sesión en las pestañas de Outlook y GEDO","ok"))
       .catch(e=>toast(e.message,"err"));
@@ -1324,7 +1343,7 @@ function renderAuto(){
   box.innerHTML=`
     <h3>🤖 Notificar automáticamente</h3>
     <div class="sesion" id="sesBox"></div>
-    ${AGENTE.remoto?`<div class="remota"><a class="btn sec sm" href="${escapeHtml(ventanaRemota())}" target="_blank" rel="noopener">🖥️ Ventana remota</a><span class="muted">☁️ Agente en la nube · para iniciar sesión, usá la ventana remota · <a href="#" id="lnkDesc">desconectar</a></span></div>`:""}
+    ${AGENTE.remoto?`<div class="remota"><button class="btn sec sm" id="btnVista">🖥️ Ventana remota</button><span class="muted">☁️ Agente en la nube · para iniciar sesión, usá la ventana remota · <a href="#" id="lnkDesc">desconectar</a></span></div>`:""}
     <label class="chk"><input type="checkbox" id="pMail" ${hayMail?"checked":"disabled"}> Enviar el mail desde Outlook web</label>
     <label class="chk"><input type="checkbox" id="pPdf" checked> Guardar el PDF del mail enviado</label>
     <label class="chk"><input type="checkbox" id="pGedo" checked> GEDO: Notificación fehaciente (firmar y descargar)</label>
@@ -1341,6 +1360,7 @@ function renderAuto(){
   if(AUTO.cfg && AUTO.cfg.vincular===false) $("pVinc").checked=false;
   $("btnAuto").onclick=lanzarAuto;
   if($("lnkDesc")) $("lnkDesc").onclick=e=>{ e.preventDefault(); if(confirm("¿Desconectar este navegador del agente en la nube? (después hay que volver a poner la clave)")) desconectarNube(); };
+  if($("btnVista")) $("btnVista").onclick=()=>abrirVista();
   if(AUTO.cfg && AUTO.cfg.imprimir) $("pImp").checked=true;
   pintarSesiones(); revalidar(); refrescarEstado();
 }
@@ -1371,7 +1391,7 @@ async function lanzarAuto(){
   const faltaOutlook = !AUTO.ses.outlook && $("pMail").checked;
   const faltaGedo = !AUTO.ses.gedo && $("pGedo").checked && !$("pGedo").disabled;
   if(faltaOutlook || faltaGedo){
-    if(AGENTE.remoto) window.open(ventanaRemota(),"_blank","noopener");
+    if(AGENTE.remoto) abrirVista();
     api("/api/navegador",{method:"POST",body:"{}"}).catch(()=>{});
     toast("Abrí la ventana del notificador: iniciá sesión en "+[faltaOutlook&&"Outlook",faltaGedo&&"GEDO"].filter(Boolean).join(" y ")+". Cuando el aviso quede en verde, tocá 🚀 de nuevo.","err");
     return;
@@ -1408,7 +1428,9 @@ function pintarPasos(t){
   box.innerHTML="";
   (t.pasos||[]).forEach(p=>{
     const d=document.createElement("div"); d.className="pasoI "+p.estado;
-    const links=(p.archivos||[]).map(a=>`<a href="${urlArchivo(a)}" target="_blank" rel="noopener">📄 ${escapeHtml(a.split(/[\\/]/).pop())}</a>`).join(" · ");
+    const links=(p.archivos||[]).map(a=> AGENTE.remoto
+      ? `<a href="#" data-archivo="${escapeHtml(a)}">📄 ${escapeHtml(a.split(/[\\/]/).pop())}</a>`    // en la nube: sin token en la dirección
+      : `<a href="${urlArchivo(a)}" target="_blank" rel="noopener">📄 ${escapeHtml(a.split(/[\\/]/).pop())}</a>`).join(" · ");
     d.innerHTML=`<div class="ico">${ICO[p.estado]||"○"}</div><div><div class="tt">${escapeHtml(p.titulo)}</div>${p.detalle?`<div class="dd">${escapeHtml(p.detalle)}</div>`:""}${links?`<div class="dd">${links}</div>`:""}</div>`;
     if(t.pregunta && t.pregunta.paso===p.clave) d.lastElementChild.appendChild(cajaPregunta(t.id, t.pregunta));
     box.appendChild(d);
@@ -1448,6 +1470,123 @@ function cajaPregunta(tid, q){
   c.appendChild(row);
   return c;
 }
+
+/* ---------- Ventana remota integrada: capturas + clics (pasa por Vercel y por cualquier red) ---------- */
+const VISTA = { tab:"", ancho:1280, alto:800, timer:null, ocupado:false, url:null, vueltas:0 };
+function armarVista(){
+  if($("vistaFondo")) return;
+  const f=document.createElement("div"); f.id="vistaFondo"; f.className="vista-fondo";
+  f.innerHTML=`
+   <div class="vista" role="dialog" aria-label="Ventana remota">
+    <div class="vista-barra">
+      <b>🖥️ Ventana remota</b>
+      <select id="vTabs" title="Pestañas del navegador del servidor"></select>
+      <button class="btn sec sm" data-a="atras" title="Atrás">←</button>
+      <button class="btn sec sm" data-a="recargar" title="Recargar">↻</button>
+      <button class="btn sec sm" data-a="nueva">+ Pestaña</button>
+      <button class="btn sec sm" data-a="cerrar">Cerrar pestaña</button>
+      <input id="vUrl" type="text" placeholder="Ir a… (ej. docs.google.com)" spellcheck="false">
+      <button class="btn sec sm" id="vIr">Ir</button>
+      <button class="btn sm" id="vSalir">✕ Cerrar</button>
+    </div>
+    <div class="vista-pantalla"><img id="vImg" alt="Pantalla del navegador del servidor"><div id="vEstado" class="vista-estado">Cargando…</div></div>
+    <div class="vista-teclado">
+      <input id="vTexto" type="password" placeholder="Escribí acá (CUIL, mail, contraseña…) y tocá Escribir" autocomplete="off" spellcheck="false">
+      <label class="chk" style="margin:0"><input type="checkbox" id="vVer"> ver</label>
+      <button class="btn sm" id="vEscribir">Escribir</button>
+      <button class="btn sec sm" data-t="Enter">Enter ⏎</button>
+      <button class="btn sec sm" data-t="Tab">Tab ⇥</button>
+      <button class="btn sec sm" data-t="Backspace">⌫ Borrar</button>
+      <button class="btn sec sm" data-t="Escape">Esc</button>
+      <button class="btn sec sm" data-s="-450" title="Subir">▲</button>
+      <button class="btn sec sm" data-s="450" title="Bajar">▼</button>
+    </div>
+    <div class="muted vista-ayuda">Hacé clic sobre la imagen como si fuera la pantalla. Para escribir: clic en el campo, escribí en el cuadro de abajo y tocá «Escribir» (o Enter). La imagen se actualiza sola cada segundo.</div>
+   </div>`;
+  document.body.appendChild(f);
+  $("vSalir").onclick=cerrarVista;
+  f.addEventListener("click", e=>{ if(e.target===f) cerrarVista(); });
+  $("vTabs").onchange=()=>{ VISTA.tab=$("vTabs").value; accionVista({tipo:"activar"}); };
+  f.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{
+    const a=b.dataset.a;
+    if(a==="cerrar" && !confirm("¿Cerrar esta pestaña del navegador del servidor?")) return;
+    accionVista(a==="nueva" ? {tipo:"nueva", url:$("vUrl").value.trim()} : {tipo:a});
+  });
+  $("vIr").onclick=()=>{ const u=$("vUrl").value.trim(); if(u) accionVista({tipo:"ir", url:u}); };
+  $("vUrl").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("vIr").click(); } });
+  $("vVer").onchange=()=>{ $("vTexto").type=$("vVer").checked?"text":"password"; };
+  const escribir=()=>{ const t=$("vTexto").value; if(!t) return; $("vTexto").value=""; accionVista({tipo:"texto", texto:t}); };
+  $("vEscribir").onclick=escribir;
+  $("vTexto").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); escribir(); } });
+  f.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>accionVista({tipo:"tecla", tecla:b.dataset.t}));
+  f.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>accionVista({tipo:"scroll", dy:+b.dataset.s, x:Math.round(VISTA.ancho/2), y:Math.round(VISTA.alto/2)}));
+  const img=$("vImg");
+  const punto=e=>{ const r=img.getBoundingClientRect(); return r.width ? {x:Math.round((e.clientX-r.left)/r.width*VISTA.ancho), y:Math.round((e.clientY-r.top)/r.height*VISTA.alto)} : null; };
+  img.addEventListener("click", e=>{ const p=punto(e); if(p) accionVista(Object.assign({tipo:"click"}, p)); });
+  let ultimaRueda=0;
+  img.addEventListener("wheel", e=>{
+    e.preventDefault(); const ahora=Date.now(); if(ahora-ultimaRueda<350) return; ultimaRueda=ahora;
+    const p=punto(e); if(p) accionVista(Object.assign({tipo:"scroll", dy:e.deltaY>0?450:-450}, p));
+  }, {passive:false});
+}
+async function abrirVista(){
+  if(!AGENTE.on) return;
+  armarVista();
+  $("vistaFondo").style.display="flex"; document.body.style.overflow="hidden";
+  $("vEstado").textContent="Cargando…";
+  await cargarTabsVista();
+  refrescarVista();
+  clearInterval(VISTA.timer);
+  VISTA.timer=setInterval(()=>{ if(!document.hidden) refrescarVista(); }, 1000);
+}
+function cerrarVista(){
+  const f=$("vistaFondo"); if(f) f.style.display="none";
+  document.body.style.overflow="";
+  clearInterval(VISTA.timer); VISTA.timer=null;
+}
+async function cargarTabsVista(){
+  try{
+    const ts=await api("/api/vista/pestanias");
+    const sel=$("vTabs"); sel.innerHTML="";
+    ts.forEach(t=>{ const o=document.createElement("option"); o.value=t.id; o.textContent=(t.titulo||t.url).slice(0,60); o.title=t.url; sel.appendChild(o); });
+    if(!ts.some(t=>t.id===VISTA.tab)) VISTA.tab=(ts[0]||{}).id||"";
+    sel.value=VISTA.tab;
+  }catch(e){ $("vEstado").textContent="⚠️ "+e.message; }
+}
+async function refrescarVista(){
+  const f=$("vistaFondo");
+  if(VISTA.ocupado || !f || f.style.display==="none") return;
+  VISTA.ocupado=true;
+  try{
+    if(++VISTA.vueltas % 6 === 0) await cargarTabsVista();   // por si se abrieron o cerraron pestañas
+    const r=await fetch(AGENTE.base+"/api/vista/captura?q=55&id="+encodeURIComponent(VISTA.tab),{ headers:{"X-Agente-Token":AGENTE.token}, cache:"no-store" });
+    if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.error||("Error "+r.status)); }
+    VISTA.ancho=+r.headers.get("X-Ancho")||VISTA.ancho; VISTA.alto=+r.headers.get("X-Alto")||VISTA.alto;
+    const u=URL.createObjectURL(await r.blob());
+    const viejo=VISTA.url; $("vImg").src=u; VISTA.url=u; if(viejo) setTimeout(()=>URL.revokeObjectURL(viejo), 3000);
+    $("vEstado").textContent="";
+  }catch(e){ $("vEstado").textContent="⚠️ "+e.message; }
+  finally{ VISTA.ocupado=false; }
+}
+async function accionVista(d){
+  $("vEstado").textContent="⏳";
+  try{ await api("/api/vista/accion",{ method:"POST", body:JSON.stringify(Object.assign({id:VISTA.tab}, d)) }); }
+  catch(e){ toast(e.message,"err"); }
+  if(["nueva","cerrar","ir","atras","recargar"].includes(d.tipo)) await cargarTabsVista();
+  setTimeout(refrescarVista, d.tipo==="click"?350:150);
+}
+// PDFs de los pasos cuando el agente está en la nube: se piden con el token en el encabezado
+document.addEventListener("click", async e=>{
+  const a=e.target.closest && e.target.closest("a[data-archivo]"); if(!a) return;
+  e.preventDefault();
+  const w=window.open("", "_blank");
+  try{
+    const r=await fetch(AGENTE.base+"/api/archivo?ruta="+encodeURIComponent(a.dataset.archivo),{ headers:{"X-Agente-Token":AGENTE.token} });
+    if(!r.ok) throw new Error("No se pudo abrir el archivo ("+r.status+")");
+    const u=URL.createObjectURL(await r.blob());
+    if(w) w.location=u; else window.open(u, "_blank");
+  }catch(err){ if(w) w.close(); toast(err.message,"err"); }
+});
 
 async function seguirTrabajo(id){
   for(;;){
